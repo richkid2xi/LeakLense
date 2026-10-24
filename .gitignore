@@ -2,11 +2,6 @@ node_modules/
 dist/
 build/
 .cache/
-.env
-.env.local
-.env.*.local
-!.env.example
-!**/.env.example
 .vite/
 vite.config.*.timestamp-*
 *.tsbuildinfo
@@ -15,7 +10,13 @@ logs/
 *.log
 .claude-replay.*
 .tmp-*
-/.figma/design-context/
+
+# Environment files
+.env
+.env.local
+.env.*.local
+!.env.example
+!**/.env.example
 
 # Monorepo artifacts
 .turbo/
@@ -24,3 +25,4 @@ coverage/
 # OS files
 .DS_Store
 Thumbs.db
+
