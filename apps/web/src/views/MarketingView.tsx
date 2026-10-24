@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { companionEvents } from "../lib/companion/events";
 import { BRAND, builderBrands, checks, faqs } from "../constants/marketing";
 import { Companion } from "../components/common/Companion";
@@ -32,28 +32,60 @@ export function MarketingView({ onEnter, onLogin }: { onEnter: (url: string) => 
   const fullHeadline = "Find what your website left open.";
   const [typedHeadline, setTypedHeadline] = useState("");
   const [typingComplete, setTypingComplete] = useState(false);
+  const typingStartedRef = useRef(false);
 
   useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      setTypedHeadline(fullHeadline);
+      setTypingComplete(true);
+      return;
+    }
+
+    let interval: ReturnType<typeof setInterval> | null = null;
     let index = 0;
-    const interval = setInterval(() => {
-      index++;
-      setTypedHeadline(fullHeadline.slice(0, index));
-      if (index >= fullHeadline.length) {
-        clearInterval(interval);
-        setTypingComplete(true);
-      }
-    }, 45);
-    return () => clearInterval(interval);
+
+    const startTyping = () => {
+      if (typingStartedRef.current) return;
+      typingStartedRef.current = true;
+      if (interval) return;
+      interval = setInterval(() => {
+        index++;
+        setTypedHeadline(fullHeadline.slice(0, index));
+        if (index >= fullHeadline.length) {
+          if (interval) clearInterval(interval);
+          setTypingComplete(true);
+        }
+      }, 45);
+    };
+
+    if (document.documentElement.classList.contains("is-ready")) {
+      startTyping();
+    } else {
+      const observer = new MutationObserver(() => {
+        if (document.documentElement.classList.contains("is-ready")) {
+          observer.disconnect();
+          startTyping();
+        }
+      });
+      observer.observe(document.documentElement, { attributes: true, attributeFilter: ["class"] });
+      return () => {
+        observer.disconnect();
+        if (interval) clearInterval(interval);
+      };
+    }
+
+    return () => {
+      if (interval) clearInterval(interval);
+    };
   }, []);
 
   useEffect(() => {
     const onScroll = () => setNavScrolled(window.scrollY > 32);
     onScroll();
     window.addEventListener("scroll", onScroll, { passive: true });
-    const nodes = document.querySelectorAll(
-      ".grid-section, .blue-band, .find-card, .safety-cards article, .finding-card"
-    );
-    nodes.forEach((node) => node.classList.add("reveal-target"));
+
+    const targets = document.querySelectorAll(".reveal-target");
     const observer = new IntersectionObserver(
       (entries) => {
         entries.forEach((entry) => {
@@ -65,7 +97,7 @@ export function MarketingView({ onEnter, onLogin }: { onEnter: (url: string) => 
       },
       { threshold: 0.12 }
     );
-    nodes.forEach((node) => observer.observe(node));
+    targets.forEach((target) => observer.observe(target));
 
     const sectionObserver = new IntersectionObserver(
       (entries) => {
@@ -173,7 +205,7 @@ export function MarketingView({ onEnter, onLogin }: { onEnter: (url: string) => 
         </div>
       </section>
 
-      <section className="checks grid-section" id="findings">
+      <section className="checks grid-section reveal-target" id="findings">
         <div className="section-intro">
           <MicroLabel>01 / WHAT WE CHECK</MicroLabel>
           <h2>
@@ -197,7 +229,7 @@ export function MarketingView({ onEnter, onLogin }: { onEnter: (url: string) => 
         </div>
       </section>
 
-      <section className="blue-band">
+      <section className="blue-band reveal-target">
         <div className="blue-inner">
           <div className="blue-heading">
             <MicroLabel>02 / SIGNAL, NOT NOISE</MicroLabel>
@@ -226,7 +258,7 @@ export function MarketingView({ onEnter, onLogin }: { onEnter: (url: string) => 
 
       <StepsSection />
 
-      <section className="sample grid-section">
+      <section className="sample grid-section reveal-target">
         <div className="frame-label">
           <MicroLabel>SAMPLE FINDING / 01</MicroLabel>
           <span>CLIENT BUNDLE</span>
@@ -251,7 +283,7 @@ export function MarketingView({ onEnter, onLogin }: { onEnter: (url: string) => 
         </article>
       </section>
 
-      <section className="safety grid-section" id="safety">
+      <section className="safety grid-section reveal-target" id="safety">
         <div className="section-title">
           <MicroLabel>04 / SAFETY BY DESIGN</MicroLabel>
           <h2>
@@ -261,13 +293,13 @@ export function MarketingView({ onEnter, onLogin }: { onEnter: (url: string) => 
           </h2>
         </div>
         <div className="safety-cards">
-          <article>
+          <article className="reveal-target">
             <span>01</span>
             <div className="line-icon shield" />
             <h3>Only apps you own</h3>
             <p>A scan starts only after you prove ownership with a DNS record or meta tag.</p>
           </article>
-          <article>
+          <article className="reveal-target">
             <span>02</span>
             <div className="line-icon eye" />
             <h3>Read-only, never exploits</h3>
@@ -276,7 +308,7 @@ export function MarketingView({ onEnter, onLogin }: { onEnter: (url: string) => 
         </div>
       </section>
 
-      <section className="builders grid-section">
+      <section className="builders grid-section reveal-target">
         <MicroLabel>WORKS WITH</MicroLabel>
         <div className="chips">
           {builderBrands.map((brand) => (
@@ -291,7 +323,7 @@ export function MarketingView({ onEnter, onLogin }: { onEnter: (url: string) => 
         </div>
       </section>
 
-      <section className="faq grid-section" id="faq">
+      <section className="faq grid-section reveal-target" id="faq">
         <div>
           <MicroLabel>05 / FAQ</MicroLabel>
           <h2>The questions worth asking.</h2>
@@ -309,7 +341,7 @@ export function MarketingView({ onEnter, onLogin }: { onEnter: (url: string) => 
         </div>
       </section>
 
-      <section className="closing grid-section" id="scan">
+      <section className="closing grid-section reveal-target" id="scan">
         <MicroLabel>YOUR APP / YOUR CALL</MicroLabel>
         <h2>Check your app before someone else does.</h2>
         <UrlForm compact onStart={beginScan} onFeedback={setBotMessage} />

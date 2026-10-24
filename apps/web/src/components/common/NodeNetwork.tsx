@@ -621,6 +621,11 @@ export function NodeNetwork({
         }
       }
 
+      // Fade in canvas on first drawn frame
+      if (canvas.style.opacity !== "1") {
+        canvas.style.opacity = "1";
+      }
+
       animId = requestAnimationFrame(renderFrame);
     };
 
@@ -664,6 +669,11 @@ export function NodeNetwork({
           ? `rgba(31, 79, 216, ${node.baseOpacity})`
           : `rgba(${baseR}, ${baseG}, ${baseB}, ${node.baseOpacity})`;
         ctx.fill();
+      }
+
+      // Fade in canvas once static frame is painted
+      if (canvas.style.opacity !== "1") {
+        canvas.style.opacity = "1";
       }
     };
 
@@ -746,6 +756,8 @@ export function NodeNetwork({
           width: "100%",
           height: "100%",
           pointerEvents: "none",
+          opacity: 0,
+          transition: "opacity 350ms cubic-bezier(0.2, 0.8, 0.2, 1)",
         }}
       />
 

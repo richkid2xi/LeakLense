@@ -4,7 +4,7 @@ import { MicroLabel } from "../common/MicroLabel";
 
 export function CoverageContent() {
   return (
-    <section className="coverage grid-section" id="coverage">
+    <section className="coverage grid-section reveal-target" id="coverage">
       <div className="coverage-title">
         <MicroLabel>WHAT {BRAND.toUpperCase()} CHECKS (AND WHAT IT DOESN'T)</MicroLabel>
         <h2>

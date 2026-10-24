@@ -112,7 +112,7 @@ export function StepsSection() {
   };
 
   return (
-    <section className="process grid-section" id="how">
+    <section className="process grid-section reveal-target" id="how">
       {/* Screen reader polite live region for step changes */}
       <div className="sr-only" aria-live="polite" aria-atomic="true">
         {liveAnnouncement}
