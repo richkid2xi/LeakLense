@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { companionEvents } from "../lib/companion/events";
 import { BRAND, builderBrands, checks, faqs, steps } from "../constants/marketing";
 import { Companion } from "../components/common/Companion";
 import { Arrow, MaterialIcon } from "../components/common/MaterialIcon";
@@ -19,6 +20,14 @@ export function MarketingView({ onEnter, onLogin }: { onEnter: (url: string) => 
   const [botMessage, setBotMessage] = useState(
     "Give me a deployed URL. I’ll look for the things your launch sprint politely ignored."
   );
+
+  useEffect(() => {
+    if (legalDocument) {
+      companionEvents.emit("modal_opened", { modalType: legalDocument });
+    } else {
+      companionEvents.emit("modal_closed", {});
+    }
+  }, [legalDocument]);
 
   const fullHeadline = "Find what your website left open.";
   const [typedHeadline, setTypedHeadline] = useState("");
@@ -57,9 +66,25 @@ export function MarketingView({ onEnter, onLogin }: { onEnter: (url: string) => 
       { threshold: 0.12 }
     );
     nodes.forEach((node) => observer.observe(node));
+
+    const sectionObserver = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (entry.isIntersecting && entry.target.id) {
+            companionEvents.emit("section_in_view", {
+              sectionId: entry.target.id,
+            });
+          }
+        }
+      },
+      { threshold: 0.3 }
+    );
+    document.querySelectorAll("section[id]").forEach((el) => sectionObserver.observe(el));
+
     return () => {
       window.removeEventListener("scroll", onScroll);
       observer.disconnect();
+      sectionObserver.disconnect();
     };
   }, []);
 
@@ -70,6 +95,7 @@ export function MarketingView({ onEnter, onLogin }: { onEnter: (url: string) => 
       "In Supabase, rotate this exposed key and move it to a server-side environment variable. Remove it from the client bundle, then redeploy."
     );
     setCopied(true);
+    companionEvents.emit("fix_prompt_copied", {});
     window.setTimeout(() => setCopied(false), 1600);
   };
 

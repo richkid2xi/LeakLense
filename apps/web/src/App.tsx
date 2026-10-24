@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { companionEvents } from "./lib/companion/events";
 import { NodeNetwork } from "./components/common/NodeNetwork";
 import { MarketingView } from "./views/MarketingView";
 import { AuthMode, AuthScreen } from "./views/AuthScreen";
@@ -10,6 +11,10 @@ export default function App() {
   const [view, setView] = useState<"marketing" | "auth" | "app">("marketing");
   const [authMode, setAuthMode] = useState<AuthMode>("signup");
   const [initialUrl, setInitialUrl] = useState("acme-notes.app");
+
+  useEffect(() => {
+    companionEvents.emit("route_changed", { route: view });
+  }, [view]);
 
   return (
     <>

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import * as api from "../lib/api";
 import type { FindingStatus, RescanComparison, UiFinding as Finding, UiScanSummary } from "../lib/api";
+import { companionEvents, SeverityLevel } from "../lib/companion/events";
 import { BRAND, checks } from "../constants/marketing";
 import { Arrow, MaterialIcon } from "../components/common/MaterialIcon";
 import { MicroLabel } from "../components/common/MicroLabel";
@@ -81,53 +82,134 @@ export function LoggedInApp({ initialUrl, onExit }: { initialUrl: string; onExit
                 : "I watch the public edges. Quietly, mostly.");
 
   useEffect(() => {
+    companionEvents.emit("route_changed", { route: "app", screen });
+    if (screen === "failed") {
+      companionEvents.emit("scan_failed", { reason: "Connection lost during public edge analysis." });
+    }
+  }, [screen]);
+
+  useEffect(() => {
+    if (legalDocument) {
+      companionEvents.emit("modal_opened", { modalType: legalDocument });
+    } else {
+      companionEvents.emit("modal_closed", {});
+    }
+  }, [legalDocument]);
+
+  useEffect(() => {
+    return companionEvents.on("companion_action_requested", ({ actionId }) => {
+      if (actionId === "show_worst_finding") {
+        const worst =
+          findings.find((f) => f.severity === "Critical") ||
+          findings.find((f) => f.severity === "High") ||
+          findings[0];
+        if (worst) {
+          handleSelectFinding(worst);
+        }
+      } else if (actionId === "show_verification_steps") {
+        nav("verify");
+      }
+    });
+  }, [findings]);
+
+  useEffect(() => {
     if (screen !== "progress") return;
+    companionEvents.emit("scan_started", { url, builder });
     setProgress(0);
     setElapsed(0);
     const timer = window.setInterval(() => {
       setElapsed((e) => e + 1);
       setProgress((p) => {
+        const next = p + 1;
+        if (next < scanSteps.length) {
+          companionEvents.emit("scan_step_changed", {
+            stepIndex: next,
+            stepName: scanSteps[next] || "",
+            stepMessage: scanMessages[next] || "",
+          });
+        }
         if (p >= scanSteps.length) {
           clearInterval(timer);
-          window.setTimeout(() => setScreen("results"), 450);
+          window.setTimeout(() => {
+            const counts = {
+              critical: findings.filter((f) => f.severity === "Critical").length,
+              high: findings.filter((f) => f.severity === "High").length,
+              medium: findings.filter((f) => f.severity === "Medium").length,
+              low: findings.filter((f) => f.severity === "Low").length,
+            };
+            companionEvents.emit("scan_finished", {
+              severityCounts: counts,
+              score: securityScore,
+              couldNotTestCount: 0,
+              clean: cleanReport,
+            });
+            setScreen("results");
+          }, 450);
           return p;
         }
-        return p + 1;
+        return next;
       });
     }, 650);
     return () => clearInterval(timer);
-  }, [screen]);
+  }, [screen, findings, securityScore, cleanReport, url, builder]);
 
   const verify = async () => {
+    const method = verifyTab === "file" ? "file" : verifyTab === "meta" ? "meta" : "dns";
+    companionEvents.emit("verification_started", { method, domain: url });
     setVerifyStatus("Checking");
     const result = await api.checkVerification(url);
     setVerifyStatus(result.status);
+    if (result.status === "Verified") {
+      companionEvents.emit("verification_succeeded", { domain: url });
+    } else {
+      companionEvents.emit("verification_failed", {
+        reason: "Verification value not found in public DNS or HTML meta tags.",
+      });
+    }
   };
+
   const nav = (next: Screen) => {
     setScreen(next);
     setSelected(null);
   };
+
   const continueToVerification = () => {
     const nextError = validateScanUrl(url);
     if (nextError) {
       setUrlError(nextError);
       setActionMessage(nextError);
+      companionEvents.emit("error_shown", { message: nextError, context: "scan_url" });
       return;
     }
     if (!authorized) {
-      setUrlError("Confirm that you own this site or are authorised to scan it.");
+      const authErr = "Confirm that you own this site or are authorised to scan it.";
+      setUrlError(authErr);
       setActionMessage("Ownership first. Even simulated scanners need boundaries.");
+      companionEvents.emit("error_shown", { message: authErr, context: "ownership_checkbox" });
       return;
     }
     setUrlError("");
     setActionMessage("");
     nav("verify");
   };
+
+  const handleSelectFinding = (f: Finding) => {
+    setSelected(f);
+    companionEvents.emit("finding_opened", {
+      id: f.id,
+      title: f.title,
+      severity: f.severity as SeverityLevel,
+      category: f.where,
+      where: f.where,
+    });
+  };
+
   const updateStatus = async (status: Finding["status"]) => {
     if (selected) {
       await api.markFindingStatus(selected.id, status as FindingStatus);
       setFindings((items) => items.map((f) => (f.id === selected.id ? { ...f, status } : f)));
       setSelected({ ...selected, status });
+      companionEvents.emit("finding_status_changed", { findingId: selected.id, newStatus: status });
     }
   };
 
@@ -558,7 +640,7 @@ export function LoggedInApp({ initialUrl, onExit }: { initialUrl: string; onExit
                           <span>Status</span>
                         </div>
                         {filtered.map((f) => (
-                          <button className="table-row" onClick={() => setSelected(f)} key={f.id}>
+                          <button className="table-row" onClick={() => handleSelectFinding(f)} key={f.id}>
                             <span>
                               <i className={`severity-dot ${severityClass(f.severity)}`} />
                               {f.severity}

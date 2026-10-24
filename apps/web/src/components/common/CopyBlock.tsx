@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { companionEvents } from "../../lib/companion/events";
 
 export function CopyBlock({ value }: { value: string }) {
   const [copied, setCopied] = useState(false);
@@ -6,6 +7,7 @@ export function CopyBlock({ value }: { value: string }) {
   const copy = async () => {
     await navigator.clipboard?.writeText(value);
     setCopied(true);
+    companionEvents.emit("fix_prompt_copied", {});
     setTimeout(() => setCopied(false), 1200);
   };
 

@@ -1,4 +1,5 @@
 import { FormEvent, useEffect, useState } from "react";
+import { companionEvents } from "../lib/companion/events";
 import { BRAND } from "../constants/marketing";
 import { Companion } from "../components/common/Companion";
 import { MaterialIcon } from "../components/common/MaterialIcon";
@@ -26,6 +27,7 @@ export function AuthScreen({
   useEffect(() => {
     setSent(false);
     setError("");
+    companionEvents.emit("route_changed", { route: "auth", screen: mode });
     setBotMessage(
       mode === "forgot"
         ? "Enter your email and we will send a password reset link."
@@ -41,18 +43,24 @@ export function AuthScreen({
     const email = String(form.get("email") || "");
     const password = String(form.get("password") || "");
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      setError("Enter a valid email address.");
+      const err = "Enter a valid email address.";
+      setError(err);
       setBotMessage("Please check the email format.");
+      companionEvents.emit("error_shown", { message: err, context: "auth_email" });
       return;
     }
     if (mode !== "forgot" && password.length < 6) {
-      setError("Password must be at least 6 characters.");
+      const err = "Password must be at least 6 characters.";
+      setError(err);
       setBotMessage("Use at least 6 characters for security.");
+      companionEvents.emit("error_shown", { message: err, context: "auth_password" });
       return;
     }
     if (mode === "login" && password.toLowerCase() === "wrong") {
-      setError("Incorrect password. Please try again.");
+      const err = "Incorrect password. Please try again.";
+      setError(err);
       setBotMessage("The password entered was not recognised.");
+      companionEvents.emit("error_shown", { message: err, context: "auth_login" });
       return;
     }
     setError("");

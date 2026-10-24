@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { UiFinding as Finding } from "../../lib/api";
+import { companionEvents } from "../../lib/companion/events";
 import { MaterialIcon } from "../common/MaterialIcon";
 import { MicroLabel } from "../common/MicroLabel";
 import { CopyBlock } from "../common/CopyBlock";
@@ -17,6 +18,13 @@ export function FindingDrawer({
 }) {
   const [builder, setBuilder] = useState("Lovable");
   const [fixMode, setFixMode] = useState<"manual" | "agent">("manual");
+
+  useEffect(() => {
+    companionEvents.emit("modal_opened", { modalType: "finding_drawer" });
+    return () => {
+      companionEvents.emit("modal_closed", {});
+    };
+  }, []);
   const promptLead: Record<string, string> = {
     Lovable: "Update this Lovable project and apply the following security fix without changing the current UI:",
     Bolt: "In this Bolt app, make the smallest scoped code and configuration changes required to:",
