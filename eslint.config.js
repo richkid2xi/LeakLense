@@ -25,4 +25,31 @@ export default [
       "no-console": "off",
     },
   },
+  {
+    files: ["apps/web/**/*.{ts,tsx}"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          paths: [
+            {
+              name: "@leaklens/security",
+              message: "apps/web is a browser client and cannot import Node-specific @leaklens/security.",
+            },
+            {
+              name: "@leaklens/detectors",
+              message:
+                "apps/web is a browser client and cannot import @leaklens/detectors directly; use @leaklens/shared or apps/web/src/lib/api.",
+            },
+          ],
+          patterns: [
+            {
+              group: ["**/packages/security/**", "**/packages/detectors/**"],
+              message: "apps/web cannot import backend security or detector packages.",
+            },
+          ],
+        },
+      ],
+    },
+  },
 ];
