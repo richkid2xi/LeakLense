@@ -580,6 +580,30 @@ button:active, .button:active, .app-card:active { transform: translateY(1px) sca
 .companion-action-btn { display: inline-flex; align-items: center; justify-content: center; padding: 6px 10px; font-size: 11px; font-family: "JetBrains Mono", monospace; font-weight: 500; color: var(--surface); background: var(--ink); border: 1px solid var(--ink); border-radius: 4px; cursor: pointer; transition: background 120ms ease, transform 120ms ease; text-align: center; }
 .companion-action-btn:hover { background: var(--blue); border-color: var(--blue); transform: translateY(-1px); }
 
+/* Accessibility Focus States */
+.companion-bot:focus-visible,
+.companion-icon-btn:focus-visible,
+.companion-action-btn:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: 2px;
+}
+
+/* Reduced Motion Mode */
+@media (prefers-reduced-motion: reduce) {
+  .companion,
+  .companion-bot,
+  .companion-bot:hover,
+  .companion-note,
+  .companion-action-btn {
+    animation: none !important;
+    transition: opacity 150ms ease !important;
+    transform: none !important;
+  }
+  .companion-bot i {
+    animation: none !important;
+  }
+}
+
 @keyframes companionIn { from { opacity: 0; transform: translateY(6px) scale(.98); } }
 
 @media (max-width: 800px) {
@@ -587,7 +611,11 @@ button:active, .button:active, .app-card:active { transform: translateY(1px) sca
   .auth-top { padding: 0 18px; }.auth-top .micro { display: none; }.auth-card { padding: 25px; }.auth-card h1 { font-size: 50px; }
   .fix-choice, .polish-grid { grid-template-columns: 1fr; }.polish-grid article + article { border-left: 1px solid var(--hairline); border-top: 0; }
   .clean-score { padding: 38px 24px; }.clean-score h1 { font-size: 90px; }.clean-score h2 { font-size: 38px; }
-  .companion { right: 14px; bottom: 14px; }.companion-bot { width: 46px; height: 46px; }
+  .companion { right: 14px; bottom: 14px; }
+  .companion-bot { width: 46px; height: 46px; }
+  .companion-note { width: min(260px, calc(100vw - 75px)); padding: 14px 36px 14px 14px; }
+  .companion--docked { opacity: 0.5; transform: scale(0.8); }
+  .companion--docked .companion-note { display: none; }
 }
 
 /* Inline correction and risk context */
