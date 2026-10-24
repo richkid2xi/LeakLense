@@ -544,12 +544,42 @@ button:active, .button:active, .app-card:active { transform: translateY(1px) sca
 .clean-preview { display: block; margin: 14px 0 0 auto; color: var(--muted); border-bottom: 1px solid; font: 11px "JetBrains Mono"; }
 
 /* Companion */
-.companion { position: fixed; z-index: 48; right: 24px; bottom: 24px; display: flex; align-items: flex-end; gap: 10px; }
-.companion-bot { width: 52px; height: 52px; position: relative; display: grid; place-items: center; color: white; background: var(--ink); border: 1px solid var(--ink); border-radius: 16px 16px 5px 16px; box-shadow: 7px 7px 0 rgba(14,14,14,.1); transition: transform 180ms ease; }
-.companion-bot:hover { transform: translateY(-3px) rotate(-2deg); }.companion-bot .material-symbols-outlined { font-size: 25px; }
-.companion-bot i { position: absolute; right: 6px; top: 6px; width: 6px; height: 6px; border-radius: 50%; background: var(--blue-light); box-shadow: 0 0 0 3px rgba(143,180,255,.14); }
-.companion-note { width: min(270px, calc(100vw - 100px)); position: relative; padding: 16px 34px 16px 16px; background: white; border: 1px solid var(--hairline); box-shadow: 7px 7px 0 rgba(14,14,14,.06); animation: companionIn 220ms ease both; }
-.companion-note p { font-size: 13px; line-height: 1.5; color: #222; }.companion-note > button { position: absolute; top: 7px; right: 7px; color: var(--muted); }.companion-note .material-symbols-outlined { font-size: 14px; }
+.companion { position: fixed; z-index: 48; right: 24px; bottom: 24px; display: flex; align-items: flex-end; gap: 10px; transition: transform 200ms ease, opacity 200ms ease; }
+.companion--docked { opacity: 0.65; transform: scale(0.88); transform-origin: bottom right; }
+.companion--docked:hover { opacity: 1; transform: scale(1); }
+
+.companion-bot { width: 52px; height: 52px; position: relative; display: grid; place-items: center; color: white; background: var(--ink); border: 1px solid var(--ink); border-radius: 16px 16px 5px 16px; box-shadow: 7px 7px 0 rgba(14,14,14,.1); transition: transform 180ms ease, background 180ms ease; cursor: pointer; }
+.companion-bot:hover { transform: translateY(-3px) rotate(-2deg); }
+.companion-bot .material-symbols-outlined { font-size: 25px; }
+.companion-bot i { position: absolute; right: 6px; top: 6px; width: 6px; height: 6px; border-radius: 50%; background: var(--blue-light); box-shadow: 0 0 0 3px rgba(143,180,255,.14); transition: background 200ms ease, box-shadow 200ms ease; }
+
+/* Companion Poses */
+.companion--sleeping .companion-bot { opacity: 0.8; }
+.companion--sleeping .companion-bot i { background: #71717a; box-shadow: none; }
+.companion--working .companion-bot i { background: #f59e0b; box-shadow: 0 0 0 3px rgba(245,158,11,.2); animation: companionWorkingPulse 1s infinite alternate ease-in-out; }
+.companion--serious .companion-bot i { background: #dc2626; box-shadow: 0 0 0 3px rgba(220,38,38,.2); }
+.companion--concerned .companion-bot i { background: #f59e0b; box-shadow: 0 0 0 3px rgba(245,158,11,.2); }
+.companion--relieved .companion-bot i { background: #16a34a; box-shadow: 0 0 0 3px rgba(22,163,74,.2); }
+.companion--celebrating .companion-bot i { background: #eab308; box-shadow: 0 0 0 3px rgba(234,179,8,.3); }
+
+@keyframes companionWorkingPulse {
+  from { opacity: 0.6; transform: scale(0.9); }
+  to { opacity: 1; transform: scale(1.15); }
+}
+
+/* Companion Speech Bubble */
+.companion-note { width: min(290px, calc(100vw - 100px)); position: relative; padding: 18px 42px 16px 16px; background: white; border: 1px solid var(--hairline); box-shadow: 7px 7px 0 rgba(14,14,14,.06); animation: companionIn 220ms ease both; }
+.companion-note p { font-size: 13px; line-height: 1.5; color: #222; margin: 0; }
+.companion-note-header { position: absolute; top: 6px; right: 6px; display: flex; align-items: center; gap: 2px; }
+.companion-icon-btn { background: transparent; border: none; cursor: pointer; color: var(--muted); display: grid; place-items: center; padding: 3px; border-radius: 3px; transition: color 120ms ease, background 120ms ease; }
+.companion-icon-btn:hover { color: var(--ink); background: rgba(14,14,14,.05); }
+.companion-icon-btn .material-symbols-outlined { font-size: 15px; }
+
+/* Companion Interactive Actions */
+.companion-actions { display: flex; flex-direction: column; gap: 6px; margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--hairline); }
+.companion-action-btn { display: inline-flex; align-items: center; justify-content: center; padding: 6px 10px; font-size: 11px; font-family: "JetBrains Mono", monospace; font-weight: 500; color: var(--surface); background: var(--ink); border: 1px solid var(--ink); border-radius: 4px; cursor: pointer; transition: background 120ms ease, transform 120ms ease; text-align: center; }
+.companion-action-btn:hover { background: var(--blue); border-color: var(--blue); transform: translateY(-1px); }
+
 @keyframes companionIn { from { opacity: 0; transform: translateY(6px) scale(.98); } }
 
 @media (max-width: 800px) {
