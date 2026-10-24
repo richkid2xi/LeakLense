@@ -1,0 +1,159 @@
+// LeakLens Database Schema
+// Connects to Supabase Postgres via Prisma
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model User {
+  id            String         @id @default(uuid())
+  email         String         @unique
+  name          String?
+  role          String         @default("user") // "user" | "admin"
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  domains       Domain[]
+  auditLogs     AuditLog[]
+  subscriptions Subscription[]
+
+  @@map("users")
+}
+
+model Domain {
+  id            String         @id @default(uuid())
+  userId        String
+  hostname      String         @unique
+  status        String         @default("pending_verification") // pending_verification | verified | failed | expired
+  verifiedAt    DateTime?
+  expiresAt     DateTime?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  verifications Verification[]
+  scans         Scan[]
+
+  @@index([userId])
+  @@index([hostname])
+  @@map("domains")
+}
+
+model Verification {
+  id            String         @id @default(uuid())
+  domainId      String
+  method        String         // "dns_txt" | "meta_tag" | "file"
+  token         String
+  status        String         @default("pending") // "pending" | "verified" | "failed"
+  attempts      Int            @default(0)
+  lastError     String?
+  verifiedAt    DateTime?
+  expiresAt     DateTime
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  domain        Domain         @relation(fields: [domainId], references: [id], onDelete: Cascade)
+
+  @@index([domainId])
+  @@index([token])
+  @@map("verifications")
+}
+
+model Scan {
+  id            String         @id @default(uuid())
+  domainId      String
+  status        String         @default("pending") // "pending" | "running" | "completed" | "failed"
+  startedAt     DateTime?
+  finishedAt    DateTime?
+  detectedStack Json           @default("[]") // string[]
+  exposureScore Int?           // 0 - 100 exposure score based on checks run
+  errorMessage  String?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  domain        Domain         @relation(fields: [domainId], references: [id], onDelete: Cascade)
+  checkRuns     CheckRun[]
+  findings      Finding[]
+
+  @@index([domainId])
+  @@index([status])
+  @@map("scans")
+}
+
+model CheckRun {
+  id            String         @id @default(uuid())
+  scanId        String
+  checkId       String         // e.g., "LL-CHECK-KEYS"
+  title         String
+  status        String         // "passed" | "issue_found" | "not_applicable" | "could_not_test"
+  reason        String?
+  createdAt     DateTime       @default(now())
+
+  scan          Scan           @relation(fields: [scanId], references: [id], onDelete: Cascade)
+
+  @@index([scanId])
+  @@index([checkId])
+  @@map("check_runs")
+}
+
+model Finding {
+  id             String        @id @default(uuid())
+  scanId         String
+  type           String        // e.g., "LL-KEY-001"
+  severity       String        // "critical" | "high" | "medium" | "low"
+  status         String        @default("open") // "open" | "fixed" | "ignored"
+  location       String
+  maskedEvidence Json          // Strict masked evidence only. Never store raw secrets.
+  metadata       Json          @default("{}")
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  scan           Scan          @relation(fields: [scanId], references: [id], onDelete: Cascade)
+
+  @@index([scanId])
+  @@index([status])
+  @@index([severity])
+  @@map("findings")
+}
+
+model AuditLog {
+  id            String         @id @default(uuid())
+  userId        String?
+  action        String         // e.g., "domain.create", "domain.verify", "scan.start", "finding.status_change"
+  hostname      String?
+  ip            String
+  metadata      Json           @default("{}")
+  timestamp     DateTime       @default(now())
+
+  user          User?          @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([hostname])
+  @@index([timestamp])
+  @@map("audit_logs")
+}
+
+model Subscription {
+  id               String      @id @default(uuid())
+  userId           String
+  plan             String      // "free" | "pro" | "pay_per_scan" | "agency"
+  status           String      @default("active") // "active" | "trialing" | "past_due" | "canceled"
+  provider         String      // "lemon_squeezy" | "paddle" | "paystack"
+  customerId       String?
+  subscriptionId   String?
+  currentPeriodEnd DateTime?
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
+
+  user             User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([status])
+  @@map("subscriptions")
+}

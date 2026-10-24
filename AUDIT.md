@@ -36,11 +36,13 @@ ui-export/
 ## 2. Screens & Routes Found
 
 The prototype does not currently use `react-router-dom`; all navigation is controlled via React component state in `App.tsx`:
+
 - Root view state: `view: "marketing" | "auth" | "app"`
 - Auth mode state: `authMode: "login" | "signup" | "forgot"`
 - Application screen state: `screen: "new" | "verify" | "progress" | "results" | "history" | "apps" | "compare" | "settings" | "failed"`
 
 ### Screens Mapped:
+
 1. **Landing Page (`view === "marketing"`)**:
    - Sticky navigation with anchors (`#findings`, `#coverage`, `#how`, `#safety`, `#faq`, `#scan`) and login button
    - Hero with interactive particle background (`AstralField`), URL input with inline validation (`UrlForm`), and simulated CLI scanning visual (`LayerDiagram`)
@@ -84,7 +86,7 @@ The prototype does not currently use `react-router-dom`; all navigation is contr
 
 7. **Results Dashboard (`screen === "results"`)**:
    - Exposure score count-up gauge (e.g. 62/100 or 100/100 for clean)
-   - Strict copy compliance: clean scans state *"No issues found in the checks we ran. Based only on the checks listed below. Not a full security audit."* (Never says "secure" or "safe")
+   - Strict copy compliance: clean scans state _"No issues found in the checks we ran. Based only on the checks listed below. Not a full security audit."_ (Never says "secure" or "safe")
    - Summary pills by severity (Critical, High, Medium, Low)
    - Detected stack badges (Supabase, Vite, Vercel)
    - Checks run table with statuses (`Passed`, `Issue found`, `Not applicable`, `Couldn't test` with reasons)
@@ -123,6 +125,7 @@ The prototype does not currently use `react-router-dom`; all navigation is contr
 ## 3. Candidates for Shared / Reusable UI Components
 
 To maintain clean architecture across the monorepo while preserving 100% of the UI look:
+
 1. `MaterialIcon`: Custom SVG icon component mapping icon names to inline path strings.
 2. `AstralField`: Interactive mouse-reactive particle background.
 3. `MicroLabel`: Standardized typography component (`.micro`) using JetBrains Mono.
@@ -140,23 +143,23 @@ To maintain clean architecture across the monorepo while preserving 100% of the 
 
 All mock data is currently hard-coded directly inside `src/App.tsx`:
 
-| Data Item | Location in `App.tsx` | Description / Content |
-| :--- | :--- | :--- |
-| `builderBrands` | Lines 4–9 | Hardcoded array of builders: Lovable, Bolt, Cursor, v0 with SVG paths. |
-| `checks` | Lines 11–18 | 6 scan checks listed on the landing page and new scan form. |
-| `faqs` | Lines 20–29 | 8 Q&A pairs. |
-| `coverageChecks` | Lines 31–39 | 7 items checked by LeakLens. |
-| `coverageExclusions` | Lines 41–50 | 8 items explicitly excluded from scope. |
-| `steps` | Lines 52–56 | 3 how-it-works steps. |
-| `sampleFindings` | Lines 527–537 | 9 hardcoded findings across Critical, High, Medium, Low with masked evidence and fix steps. |
-| `scanSteps` & `scanMessages` | Lines 539–540 | 5 simulated progress steps and status messages. |
-| `checksRun` | Lines 541–549 | 7 check runs with statuses and mock reasons. |
-| Prompt Lead Texts | Lines 590–596 | Builder prompt prefixes (`Lovable`, `Bolt`, `Cursor`, `v0`, `Any agent`). |
-| Scan History Rows | Line 777 | Hardcoded historical scans (`LL-2025-031`, `LL-2025-024`, `LL-2025-018`). |
-| Rescan Comparison Data | Lines 770–771 | Hardcoded Before/After scores (41 vs 62), resolved and new issues count. |
-| User Profile | Lines 702, 792 | "Alex Morgan", `alex@example.com`. |
-| Workspace / Domain | Lines 701, 784, 793 | "Acme Notes", `acme-notes.app`. |
-| Verification Tokens | Line 727 | Hardcoded token `ll_sample_3a82`. |
+| Data Item                    | Location in `App.tsx` | Description / Content                                                                       |
+| :--------------------------- | :-------------------- | :------------------------------------------------------------------------------------------ |
+| `builderBrands`              | Lines 4–9             | Hardcoded array of builders: Lovable, Bolt, Cursor, v0 with SVG paths.                      |
+| `checks`                     | Lines 11–18           | 6 scan checks listed on the landing page and new scan form.                                 |
+| `faqs`                       | Lines 20–29           | 8 Q&A pairs.                                                                                |
+| `coverageChecks`             | Lines 31–39           | 7 items checked by LeakLens.                                                                |
+| `coverageExclusions`         | Lines 41–50           | 8 items explicitly excluded from scope.                                                     |
+| `steps`                      | Lines 52–56           | 3 how-it-works steps.                                                                       |
+| `sampleFindings`             | Lines 527–537         | 9 hardcoded findings across Critical, High, Medium, Low with masked evidence and fix steps. |
+| `scanSteps` & `scanMessages` | Lines 539–540         | 5 simulated progress steps and status messages.                                             |
+| `checksRun`                  | Lines 541–549         | 7 check runs with statuses and mock reasons.                                                |
+| Prompt Lead Texts            | Lines 590–596         | Builder prompt prefixes (`Lovable`, `Bolt`, `Cursor`, `v0`, `Any agent`).                   |
+| Scan History Rows            | Line 777              | Hardcoded historical scans (`LL-2025-031`, `LL-2025-024`, `LL-2025-018`).                   |
+| Rescan Comparison Data       | Lines 770–771         | Hardcoded Before/After scores (41 vs 62), resolved and new issues count.                    |
+| User Profile                 | Lines 702, 792        | "Alex Morgan", `alex@example.com`.                                                          |
+| Workspace / Domain           | Lines 701, 784, 793   | "Acme Notes", `acme-notes.app`.                                                             |
+| Verification Tokens          | Line 727              | Hardcoded token `ll_sample_3a82`.                                                           |
 
 ---
 
@@ -164,13 +167,13 @@ All mock data is currently hard-coded directly inside `src/App.tsx`:
 
 1. **State-Based Navigation vs URL Routing**:
    - `App.tsx` uses internal React state (`view`, `screen`). Direct browser back/forward buttons, deep linking to `/scans/:id` or `/settings`, and page reloads will reset the application to marketing or lose the active screen.
-   - *Fix*: Move to React Router while preserving all screen state transitions and views.
+   - _Fix_: Move to React Router while preserving all screen state transitions and views.
 2. **Simulated Asynchronous Actions (`window.setTimeout`)**:
    - Verification status changes (`Checking` → `Verified` after 700ms) and scan progress (timer advancing progress every 650ms) are hardcoded in `useEffect`/`setTimeout`.
-   - *Fix*: Abstract these behind the data-access layer (`lib/api`) so mock adapters can simulate them during testing/offline mode and the HTTP adapter can call the real API.
+   - _Fix_: Abstract these behind the data-access layer (`lib/api`) so mock adapters can simulate them during testing/offline mode and the HTTP adapter can call the real API.
 3. **Hard-Coded Finding Status Mutation**:
    - Updating finding status (`Open`, `Fixed`, `Ignored`) only mutates in-memory state.
-   - *Fix*: Route through `markFindingStatus` API method.
+   - _Fix_: Route through `markFindingStatus` API method.
 4. **Prompt Assembly Security (Prompt Injection Guard)**:
    - In `FindingDrawer`, prompts are concatenated strings: `${promptLead[builder]} ${finding.title} at ${finding.where}...`.
    - Per brief Section 6, prompt generation must use strict typed placeholders from `packages/kb` and never interpolate raw unvalidated content into prompts.
@@ -183,13 +186,13 @@ All mock data is currently hard-coded directly inside `src/App.tsx`:
 
 ## 6. Conflicts with Target Stack & Monorepo Migration Plan
 
-| Prototype Implementation | Target Monorepo Stack | Action Needed |
-| :--- | :--- | :--- |
-| Single package (`figma-make-app`) | Monorepo: `apps/web`, `apps/api`, `apps/worker`, `packages/shared`, `packages/kb` | Move web app to `apps/web`, set up root `pnpm-workspace.yaml`. |
-| Figma Make Vite plugins (`figmaSiteConfiguration`, `figmaErrorOverlayReplay`, etc.) | Standard Vite + React + Tailwind v4 for Vercel deployment | Clean up proprietary Figma Make build plugins in `apps/web/vite.config.ts` while preserving all Tailwind v4 and React configs. |
-| Hardcoded sample data and in-component mock state | Data-access layer in `apps/web/src/lib/api` with `USE_MOCK` flag | Extract mock data into `mockAdapter.ts`, expose standard API interface. |
-| Custom ad-hoc types (`Finding`, `Screen`, etc.) | Typed Zod schemas and TypeScript interfaces in `packages/shared` | Define domain models in `packages/shared` and import in `apps/web`. |
-| In-memory fix prompts | `packages/kb` curated templates with strict sanitization | Wire prompt templates to `packages/kb` data structures. |
+| Prototype Implementation                                                            | Target Monorepo Stack                                                             | Action Needed                                                                                                                  |
+| :---------------------------------------------------------------------------------- | :-------------------------------------------------------------------------------- | :----------------------------------------------------------------------------------------------------------------------------- |
+| Single package (`figma-make-app`)                                                   | Monorepo: `apps/web`, `apps/api`, `apps/worker`, `packages/shared`, `packages/kb` | Move web app to `apps/web`, set up root `pnpm-workspace.yaml`.                                                                 |
+| Figma Make Vite plugins (`figmaSiteConfiguration`, `figmaErrorOverlayReplay`, etc.) | Standard Vite + React + Tailwind v4 for Vercel deployment                         | Clean up proprietary Figma Make build plugins in `apps/web/vite.config.ts` while preserving all Tailwind v4 and React configs. |
+| Hardcoded sample data and in-component mock state                                   | Data-access layer in `apps/web/src/lib/api` with `USE_MOCK` flag                  | Extract mock data into `mockAdapter.ts`, expose standard API interface.                                                        |
+| Custom ad-hoc types (`Finding`, `Screen`, etc.)                                     | Typed Zod schemas and TypeScript interfaces in `packages/shared`                  | Define domain models in `packages/shared` and import in `apps/web`.                                                            |
+| In-memory fix prompts                                                               | `packages/kb` curated templates with strict sanitization                          | Wire prompt templates to `packages/kb` data structures.                                                                        |
 
 ---
 
