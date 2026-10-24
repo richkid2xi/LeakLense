@@ -3,14 +3,27 @@ import { z } from "zod";
 export const VerificationMethodSchema = z.enum(["dns_txt", "meta_tag", "file"]);
 export type VerificationMethod = z.infer<typeof VerificationMethodSchema>;
 
-export const VerificationStatusSchema = z.enum(["pending", "verified", "failed"]);
+export const VerificationStatusSchema = z.enum(["pending", "verified", "failed", "expired"]);
 export type VerificationStatus = z.infer<typeof VerificationStatusSchema>;
+
+/**
+ * Normalizes input verification methods at API or adapter boundaries
+ * to the canonical VerificationMethod type.
+ */
+export function normalizeVerificationMethod(method: string): VerificationMethod {
+  if (method === "dns" || method === "dns_txt") return "dns_txt";
+  if (method === "meta" || method === "meta_tag") return "meta_tag";
+  if (method === "file") return "file";
+  throw new Error(`Invalid verification method: ${method}`);
+}
 
 export const VerificationSchema = z.object({
   id: z.string().uuid(),
   domainId: z.string().uuid(),
   method: VerificationMethodSchema,
   token: z.string().min(16),
+  tokenHash: z.string().optional(),
+  tokenPreview: z.string().optional(),
   status: VerificationStatusSchema.default("pending"),
   attempts: z.number().int().nonnegative().default(0),
   lastError: z.string().nullable().optional(),

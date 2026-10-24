@@ -4,8 +4,10 @@ export const CheckStatusSchema = z.enum(["passed", "issue_found", "not_applicabl
 export type CheckStatus = z.infer<typeof CheckStatusSchema>;
 
 export const CheckResultSchema = z.object({
-  checkId: z.string(),
-  title: z.string(),
+  id: z.string(),
+  label: z.string().optional(),
+  checkId: z.string().optional(),
+  title: z.string().optional(),
   status: CheckStatusSchema,
   reason: z.string().optional(),
 });
