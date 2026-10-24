@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" class="is-loading">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -29,6 +29,78 @@
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
     <link rel="manifest" href="/site.webmanifest" />
+
+    <!-- Self-hosted Font Preloads -->
+    <link rel="preload" as="font" type="font/woff2" href="/fonts/InstrumentSerif-400.woff2" crossorigin />
+    <link rel="preload" as="font" type="font/woff2" href="/fonts/Inter-400.woff2" crossorigin />
+    <link rel="preload" as="font" type="font/woff2" href="/fonts/JetBrainsMono-400.woff2" crossorigin />
+
+    <!-- Critical CSS: Paper Background & Reveal Gate -->
+    <style>
+      :root {
+        --paper: #F3F3F0;
+        --surface: #FFFFFF;
+        --ink: #0E0E0E;
+        --muted: #484844;
+        --hairline: #D9D9D3;
+        --blue-deep: #0B2A6F;
+        --blue: #1F4FD8;
+        --blue-light: #8FB4FF;
+
+        /* Coordinated Entry Animation Parameters (adjustable in one place) */
+        --reveal-duration: 400ms;
+        --reveal-ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+        --reveal-distance: 14px;
+        --stagger-delay: 80ms;
+      }
+
+      /* Immediate paper background on html/body prevents white frame before external CSS */
+      html, body {
+        margin: 0;
+        padding: 0;
+        background-color: #F3F3F0;
+        color: #0E0E0E;
+        min-height: 100%;
+        font-family: "Inter", "Inter Fallback", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      }
+
+      /* Reveal Gate: hide root while loading to prevent unstyled / un-animated flash */
+      html.is-loading #root {
+        opacity: 0;
+      }
+
+      /* Coordinated reveal once app mounts, fonts ready, and first frame paints */
+      html.is-ready #root {
+        opacity: 1;
+        transition: opacity var(--reveal-duration) var(--reveal-ease);
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        html.is-ready #root {
+          transition: none;
+        }
+      }
+    </style>
+
+    <!-- No-JS Safety Fallback -->
+    <noscript>
+      <style>
+        html.is-loading #root,
+        .is-loading {
+          opacity: 1 !important;
+        }
+      </style>
+    </noscript>
+
+    <!-- Fallback Timer: guarantees page visibility within 2500ms even if script bundle is slow -->
+    <script>
+      setTimeout(function() {
+        if (document.documentElement.classList.contains('is-loading')) {
+          document.documentElement.classList.remove('is-loading');
+          document.documentElement.classList.add('is-ready');
+        }
+      }, 2500);
+    </script>
 
     <script type="application/ld+json">
       {
