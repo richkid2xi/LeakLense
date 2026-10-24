@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { AstralField } from "./components/common/AstralField";
+import { NodeNetwork } from "./components/common/NodeNetwork";
 import { MarketingView } from "./views/MarketingView";
 import { AuthMode, AuthScreen } from "./views/AuthScreen";
 import { LoggedInApp } from "./views/LoggedInApp";
@@ -13,7 +13,7 @@ export default function App() {
 
   return (
     <>
-      <AstralField fixed />
+      <NodeNetwork />
       {view === "app" && (
         <LoggedInApp initialUrl={initialUrl} onExit={() => setView("marketing")} />
       )}

@@ -492,13 +492,12 @@ button:active, .button:active, .app-card:active { transform: translateY(1px) sca
   .reveal-target { opacity: 1; transform: none; transition: none; }
 }
 
-/* Builder marks and responsive astral field */
+/* Builder marks */
 .topbar::after, .topbar.scrolled .wordmark::after { display: none; }
 .chips span { display: inline-flex; align-items: center; justify-content: center; gap: 11px; transition: transform 180ms ease, background 180ms ease, border-color 180ms ease; }
 .chips span:hover { transform: translateY(-2px); background: var(--surface); border-color: var(--ink); }
 .chips img { width: 20px; height: 20px; object-fit: contain; }
-.hero > :not(.astral-field) { position: relative; z-index: 1; }
-.astral-field { position: absolute; z-index: 0; inset: 0; overflow: hidden; pointer-events: none; }
+.hero > * { position: relative; z-index: 1; }
 .chips span { min-width: 140px; }
 
 /* Authentication */
