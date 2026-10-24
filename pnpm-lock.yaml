@@ -124,12 +124,21 @@ importers:
 
   apps/worker:
     dependencies:
+      '@leaklens/detectors':
+        specifier: workspace:*
+        version: link:../../packages/detectors
       '@leaklens/kb':
         specifier: workspace:*
         version: link:../../packages/kb
+      '@leaklens/security':
+        specifier: workspace:*
+        version: link:../../packages/security
       '@leaklens/shared':
         specifier: workspace:*
         version: link:../../packages/shared
+      '@prisma/client':
+        specifier: ^6.4.1
+        version: 6.19.3(prisma@6.19.3(typescript@5.9.3))(typescript@5.9.3)
       dotenv:
         specifier: ^16.4.7
         version: 16.6.1
@@ -143,12 +152,18 @@ importers:
       '@types/node':
         specifier: ^22.13.5
         version: 22.19.17
+      prisma:
+        specifier: ^6.4.1
+        version: 6.19.3(typescript@5.9.3)
       tsx:
         specifier: ^4.19.3
         version: 4.23.15
       typescript:
         specifier: ^5.7.0
         version: 5.9.3
+      vitest:
+        specifier: ^3.0.7
+        version: 3.2.7(@types/node@22.19.17)(jiti@2.6.1)(lightningcss@1.32.0)(supports-color@7.2.0)(tsx@4.23.15)
 
   packages/detectors:
     dependencies:
