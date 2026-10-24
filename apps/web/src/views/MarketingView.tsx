@@ -1,10 +1,10 @@
 import { useEffect, useState } from "react";
 import { BRAND, builderBrands, checks, faqs, steps } from "../constants/marketing";
-import { AstralField } from "../components/common/AstralField";
 import { Companion } from "../components/common/Companion";
 import { Arrow, MaterialIcon } from "../components/common/MaterialIcon";
 import { MicroLabel } from "../components/common/MicroLabel";
 import { CoverageContent } from "../components/marketing/CoverageContent";
+import { InteractiveFindingCards } from "../components/marketing/InteractiveFindingCards";
 import { LayerDiagram } from "../components/marketing/LayerDiagram";
 import { UrlForm } from "../components/marketing/UrlForm";
 import { LegalDocument, LegalModal } from "../components/modals/LegalModal";
@@ -19,6 +19,23 @@ export function MarketingView({ onEnter, onLogin }: { onEnter: (url: string) => 
   const [botMessage, setBotMessage] = useState(
     "Give me a deployed URL. I’ll look for the things your launch sprint politely ignored."
   );
+
+  const fullHeadline = "Find what your website left open.";
+  const [typedHeadline, setTypedHeadline] = useState("");
+  const [typingComplete, setTypingComplete] = useState(false);
+
+  useEffect(() => {
+    let index = 0;
+    const interval = setInterval(() => {
+      index++;
+      setTypedHeadline(fullHeadline.slice(0, index));
+      if (index >= fullHeadline.length) {
+        clearInterval(interval);
+        setTypingComplete(true);
+      }
+    }, 45);
+    return () => clearInterval(interval);
+  }, []);
 
   useEffect(() => {
     const onScroll = () => setNavScrolled(window.scrollY > 32);
@@ -97,10 +114,12 @@ export function MarketingView({ onEnter, onLogin }: { onEnter: (url: string) => 
       </header>
 
       <section className="hero grid-section" id="top">
-        <AstralField />
         <div className="cross cross-tl" />
         <div className="cross cross-tr" />
-        <h1>Find what your website left open.</h1>
+        <h1>
+          <span>{typedHeadline || "\u00A0"}</span>
+          <span className={`hero-typewriter-cursor ${typingComplete ? "blink" : ""}`}>|</span>
+        </h1>
         <p className="hero-copy">
           {BRAND} checks apps built with Lovable, Bolt, Cursor and v0, and any other website you own, for leaked keys
           and open databases. Then it gives you the fix in plain English.
@@ -159,26 +178,7 @@ export function MarketingView({ onEnter, onLogin }: { onEnter: (url: string) => 
             <h2>What we find.</h2>
             <p>Focused checks for the mistakes that matter most in public, AI-built apps.</p>
           </div>
-          <div className="charts" aria-label="Illustrative findings charts">
-            {[
-              ["KEYS", 54],
-              ["TABLES", 78],
-              ["BUCKETS", 36],
-            ].map(([label, value], card) => (
-              <div className="chart-card" key={label}>
-                <div className="chart-head">
-                  <span>{label}</span>
-                  <small>ILLUSTRATIVE</small>
-                </div>
-                <div className="bars">
-                  {[0.38, 0.7, 0.48, 1, 0.62, 0.82, 0.34].map((v, i) => (
-                    <i key={i} style={{ height: `${Number(value) * v}%` }} />
-                  ))}
-                </div>
-                <span className="chart-index">0{card + 1}</span>
-              </div>
-            ))}
-          </div>
+          <InteractiveFindingCards />
           <div className="blue-notes">
             <article>
               <MicroLabel>HOW WE CHECK</MicroLabel>
@@ -381,7 +381,7 @@ export function MarketingView({ onEnter, onLogin }: { onEnter: (url: string) => 
         <div className="footer-mark">{BRAND}</div>
         <div className="legal">
           <span>© 2025 {BRAND}</span>
-          <span>WORKING NAME / PROTOTYPE</span>
+          <span>POWERED BY LEAKLENS ENGINE · CONTINUOUS EXPOSURE DETECTION</span>
         </div>
       </footer>
       <Companion message={botMessage} />

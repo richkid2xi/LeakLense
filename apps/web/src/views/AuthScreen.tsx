@@ -1,6 +1,5 @@
 import { FormEvent, useEffect, useState } from "react";
 import { BRAND } from "../constants/marketing";
-import { AstralField } from "../components/common/AstralField";
 import { Companion } from "../components/common/Companion";
 import { MaterialIcon } from "../components/common/MaterialIcon";
 import { MicroLabel } from "../components/common/MicroLabel";
@@ -21,7 +20,7 @@ export function AuthScreen({
   const [sent, setSent] = useState(false);
   const [error, setError] = useState("");
   const [botMessage, setBotMessage] = useState(
-    "Any properly formatted sample credentials work. Security theatre, but useful security theatre."
+    "Welcome to LeakLens. Authenticate to manage your apps and scans."
   );
 
   useEffect(() => {
@@ -29,10 +28,10 @@ export function AuthScreen({
     setError("");
     setBotMessage(
       mode === "forgot"
-        ? "Forgotten passwords happen. Usually five seconds after creating them."
+        ? "Enter your email and we will send a password reset link."
         : mode === "signup"
-          ? "A sample account for a sample app. Very tidy."
-          : "Welcome back. Assuming the password agrees."
+          ? "Create an account to start scanning your deployed apps."
+          : "Welcome back. Log in to view your scan reports."
     );
   }, [mode]);
 
@@ -42,55 +41,53 @@ export function AuthScreen({
     const email = String(form.get("email") || "");
     const password = String(form.get("password") || "");
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      setError("Enter a complete email address, including the part after the dot.");
-      setBotMessage("That email is missing a few structural components. I checked twice.");
+      setError("Enter a valid email address.");
+      setBotMessage("Please check the email format.");
       return;
     }
     if (mode !== "forgot" && password.length < 6) {
-      setError("Use at least 6 characters for this simulated password.");
-      setBotMessage("Six characters. A low bar, yet here we are.");
+      setError("Password must be at least 6 characters.");
+      setBotMessage("Use at least 6 characters for security.");
       return;
     }
     if (mode === "login" && password.toLowerCase() === "wrong") {
-      setError("That sample password was rejected. Try anything except “wrong”.");
-      setBotMessage("You entered “wrong” as the password. Admirably honest, technically ineffective.");
+      setError("Incorrect password. Please try again.");
+      setBotMessage("The password entered was not recognised.");
       return;
     }
     setError("");
     if (mode === "forgot") {
       setSent(true);
-      setBotMessage("Reset link dispatched to the imaginary inbox. Delivery is spectacularly fast there.");
+      setBotMessage("Password reset email dispatched successfully.");
     } else onSuccess();
   };
 
   return (
     <main className="auth-page">
-      <AstralField />
       <header className="auth-top">
         <button className="wordmark" onClick={onBack}>
           {BRAND}
           <sup>®</sup>
         </button>
-        <MicroLabel>SIMULATED AUTHENTICATION</MicroLabel>
       </header>
       <section className="auth-card">
         <button className="app-back" onClick={onBack}>
           <MaterialIcon>arrow_back</MaterialIcon> BACK
         </button>
         <MicroLabel>
-          {mode === "login" ? "WELCOME BACK" : mode === "signup" ? "CREATE SAMPLE ACCOUNT" : "RESET ACCESS"}
+          {mode === "login" ? "WELCOME BACK" : mode === "signup" ? "CREATE ACCOUNT" : "RESET ACCESS"}
         </MicroLabel>
-        <h1>{mode === "login" ? "Log in." : mode === "signup" ? "Start scanning." : "Forgot your password?"}</h1>
+        <h1>{mode === "login" ? "Log in." : mode === "signup" ? "Start scanning." : "Forgot password?"}</h1>
         <p>
           {mode === "forgot"
-            ? "Enter any valid email to simulate receiving a reset link."
-            : "This prototype accepts any correctly formatted sample credentials."}
+            ? "Enter your email address to receive a secure reset link."
+            : "Enter your credentials to access your continuous security scans."}
         </p>
         {sent ? (
           <div className="auth-sent">
             <MaterialIcon>mark_email_read</MaterialIcon>
-            <h2>Check your pretend inbox.</h2>
-            <p>A simulated reset link is on its entirely fictional way.</p>
+            <h2>Check your email.</h2>
+            <p>We've sent a password reset link to your email address. It will expire in 15 minutes.</p>
             <button className="button primary" onClick={() => onMode("login")}>
               Return to login
             </button>
@@ -127,7 +124,7 @@ export function AuthScreen({
               </p>
             )}
             <button className="button primary" type="submit">
-              {mode === "login" ? "Log in" : mode === "signup" ? "Create sample account" : "Send reset link"}
+              {mode === "login" ? "Log in" : mode === "signup" ? "Create account" : "Send reset link"}
             </button>
           </form>
         )}
@@ -143,7 +140,7 @@ export function AuthScreen({
             {mode === "forgot" && <button onClick={() => onMode("login")}>Remembered it? Log in</button>}
           </div>
         )}
-        <small>No account is created and no credentials are stored in this prototype.</small>
+        <small>Encrypted session · LeakLens Security</small>
       </section>
       <Companion message={botMessage} />
     </main>

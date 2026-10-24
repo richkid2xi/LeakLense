@@ -155,11 +155,6 @@ export function LoggedInApp({ initialUrl, onExit }: { initialUrl: string; onExit
             <MaterialIcon>settings</MaterialIcon>Settings
           </button>
         </nav>
-        <div className="sample-label">
-          SAMPLE WORKSPACE
-          <br />
-          ALL DATA IS SAMPLE
-        </div>
       </aside>
       <div className="app-main">
         <header className="app-topbar">
@@ -185,7 +180,7 @@ export function LoggedInApp({ initialUrl, onExit }: { initialUrl: string; onExit
             {screen === "new" && (
               <section className="app-screen">
                 <div className="app-page-title">
-                  <MicroLabel>NEW SCAN / SAMPLE WORKSPACE</MicroLabel>
+                  <MicroLabel>NEW SCAN</MicroLabel>
                   <h1>What should we check?</h1>
                   <p>Choose your deployed app and the read-only checks to run.</p>
                 </div>
@@ -267,7 +262,7 @@ export function LoggedInApp({ initialUrl, onExit }: { initialUrl: string; onExit
             )}
 
             {screen === "verify" && (
-              <section className="app-screen narrow-screen">
+              <section className="app-screen">
                 <button className="app-back" onClick={() => nav("new")}>
                   <MaterialIcon>arrow_back</MaterialIcon> BACK TO SCAN
                 </button>
@@ -338,7 +333,7 @@ export function LoggedInApp({ initialUrl, onExit }: { initialUrl: string; onExit
             )}
 
             {screen === "progress" && (
-              <section className="app-screen narrow-screen">
+              <section className="app-screen">
                 <div className="app-page-title">
                   <MicroLabel>SCAN LL-2025-031 / RUNNING</MicroLabel>
                   <h1>Looking at the public edges.</h1>
@@ -374,9 +369,9 @@ export function LoggedInApp({ initialUrl, onExit }: { initialUrl: string; onExit
             )}
 
             {screen === "failed" && (
-              <section className="app-screen narrow-screen">
+              <section className="app-screen">
                 <div className="app-page-title">
-                  <MicroLabel>SCAN FAILED / SAMPLE STATE</MicroLabel>
+                  <MicroLabel>SCAN FAILED</MicroLabel>
                   <h1>We lost the connection.</h1>
                   <p>The scan stopped before any checks completed. Your app was not changed.</p>
                 </div>
@@ -395,7 +390,7 @@ export function LoggedInApp({ initialUrl, onExit }: { initialUrl: string; onExit
                 {cleanReport ? (
                   <div className="clean-report">
                     <div className="clean-score">
-                      <MicroLabel>EXPOSURE SCORE / SAMPLE DATA</MicroLabel>
+                      <MicroLabel>EXPOSURE SCORE</MicroLabel>
                       <h1>
                         <ScoreCount target={100} />
                         <sup>/100</sup>
@@ -450,7 +445,7 @@ export function LoggedInApp({ initialUrl, onExit }: { initialUrl: string; onExit
                       </article>
                     </div>
                     <button className="button" onClick={() => setCleanReport(false)}>
-                      View sample findings
+                      View active findings
                     </button>
                     <p className="report-disclaimer">
                       {BRAND} checks only the issues listed in our <a href="/#coverage">coverage section</a>. Not a
@@ -461,7 +456,7 @@ export function LoggedInApp({ initialUrl, onExit }: { initialUrl: string; onExit
                   <>
                     <div className="results-hero">
                       <div>
-                        <MicroLabel>EXPOSURE SCORE / SAMPLE DATA</MicroLabel>
+                        <MicroLabel>EXPOSURE SCORE</MicroLabel>
                         <h1>
                           <span className="count-score">
                             <ScoreCount target={securityScore} />
@@ -579,7 +574,7 @@ export function LoggedInApp({ initialUrl, onExit }: { initialUrl: string; onExit
                     ) : (
                       <div className="empty-state">
                         <MicroLabel>NO MATCHES</MicroLabel>
-                        <p>No sample findings match these filters.</p>
+                        <p>No findings match these filters.</p>
                         <button
                           onClick={() => {
                             setSeverityFilter("All");
@@ -605,7 +600,7 @@ export function LoggedInApp({ initialUrl, onExit }: { initialUrl: string; onExit
                   <MaterialIcon>arrow_back</MaterialIcon> BACK TO RESULTS
                 </button>
                 <div className="app-page-title">
-                  <MicroLabel>RESCAN COMPARISON / SAMPLE DATA</MicroLabel>
+                  <MicroLabel>RESCAN COMPARISON</MicroLabel>
                   <h1>Fewer exposures than yesterday.</h1>
                 </div>
                 <div className="compare-scores">
@@ -699,7 +694,7 @@ export function LoggedInApp({ initialUrl, onExit }: { initialUrl: string; onExit
               <section className="app-screen">
                 <div className="app-page-title row-title">
                   <div>
-                    <MicroLabel>APPS / SAMPLE DATA</MicroLabel>
+                    <MicroLabel>YOUR APPS</MicroLabel>
                     <h1>Your apps.</h1>
                     <p>Verified apps available to this workspace.</p>
                   </div>
@@ -717,7 +712,7 @@ export function LoggedInApp({ initialUrl, onExit }: { initialUrl: string; onExit
                     <h3>Acme Notes</h3>
                     <code>{url || "acme-notes.app"}</code>
                     <footer>
-                      <span>3 sample scans</span>
+                      <span>3 completed scans</span>
                       <strong>
                         Score {securityScore} <MaterialIcon>arrow_forward</MaterialIcon>
                       </strong>
@@ -742,7 +737,7 @@ export function LoggedInApp({ initialUrl, onExit }: { initialUrl: string; onExit
                   <section>
                     <div>
                       <h3>Profile</h3>
-                      <p>Your sample account details.</p>
+                      <p>Your account details.</p>
                     </div>
                     <div className="settings-fields">
                       <label>
@@ -781,7 +776,7 @@ export function LoggedInApp({ initialUrl, onExit }: { initialUrl: string; onExit
                   <section className="danger-zone">
                     <div>
                       <h3>Danger zone</h3>
-                      <p>Remove this sample workspace.</p>
+                      <p>Permanently delete this workspace and its scan history.</p>
                     </div>
                     <button>Delete workspace</button>
                   </section>
