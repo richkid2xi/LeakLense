@@ -69,16 +69,11 @@ export const coverageExclusions = [
   "Denial-of-service and performance attacks",
 ];
 
-export const steps = [
-  { number: "01", title: "Verify", body: "Prove the app is yours with a DNS TXT record or a temporary meta tag." },
-  {
-    number: "02",
-    title: "Scan",
-    body: "LeakLens runs read-only checks against the parts of your app that are publicly reachable.",
-  },
-  {
-    number: "03",
-    title: "Fix",
-    body: "Read a plain-English explanation and paste the tailored fix prompt into your AI builder.",
-  },
-];
+import { HOW_IT_WORKS_STEPS } from "../components/marketing/howItWorksContent";
+
+export const steps = HOW_IT_WORKS_STEPS.map((s) => ({
+  number: s.number,
+  title: s.title,
+  body: s.description,
+}));
+

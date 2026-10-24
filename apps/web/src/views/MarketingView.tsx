@@ -1,18 +1,18 @@
 import { useEffect, useState } from "react";
 import { companionEvents } from "../lib/companion/events";
-import { BRAND, builderBrands, checks, faqs, steps } from "../constants/marketing";
+import { BRAND, builderBrands, checks, faqs } from "../constants/marketing";
 import { Companion } from "../components/common/Companion";
 import { Arrow, MaterialIcon } from "../components/common/MaterialIcon";
 import { MicroLabel } from "../components/common/MicroLabel";
 import { CoverageContent } from "../components/marketing/CoverageContent";
 import { FindingCards } from "../components/marketing/FindingCards";
 import { HeroScanCard } from "../components/marketing/HeroScanCard";
+import { StepsSection } from "../components/marketing/StepsSection";
 import { UrlForm } from "../components/marketing/UrlForm";
 import { LegalDocument, LegalModal } from "../components/modals/LegalModal";
 
 export function MarketingView({ onEnter, onLogin }: { onEnter: (url: string) => void; onLogin: () => void }) {
   const [menuOpen, setMenuOpen] = useState(false);
-  const [activeStep, setActiveStep] = useState(0);
   const [openFaq, setOpenFaq] = useState<number | null>(0);
   const [copied, setCopied] = useState(false);
   const [navScrolled, setNavScrolled] = useState(false);
@@ -224,60 +224,7 @@ export function MarketingView({ onEnter, onLogin }: { onEnter: (url: string) => 
 
       <CoverageContent />
 
-      <section className="process grid-section" id="how">
-        <div className="process-copy">
-          <MicroLabel>03 / HOW IT WORKS</MicroLabel>
-          <h2>Three steps, five minutes of your time.</h2>
-          <div className="step-list">
-            {steps.map((step, i) => (
-              <button
-                className={activeStep === i ? "active" : ""}
-                key={step.title}
-                onClick={() => setActiveStep(i)}
-                aria-expanded={activeStep === i}
-              >
-                <span>{step.number}</span>
-                <strong>{step.title}</strong>
-                <i>
-                  <MaterialIcon>{activeStep === i ? "remove" : "add"}</MaterialIcon>
-                </i>
-                {activeStep === i && <p>{step.body}</p>}
-              </button>
-            ))}
-          </div>
-        </div>
-        {steps[activeStep] && (
-          <div className="card-stack" aria-label={`${steps[activeStep].title} step illustration`}>
-            <div className="stack-card back-two" />
-            <div className="stack-card back-one" />
-            <div className="stack-card front">
-              <MicroLabel>
-                STEP {steps[activeStep].number} / {steps[activeStep].title.toUpperCase()}
-              </MicroLabel>
-              <div className="mini-browser">
-                <span />
-                <span />
-                <span />
-                <b>your-app.com</b>
-              </div>
-              <div className="mini-status">
-                <i />
-                {activeStep === 0
-                  ? "Awaiting verification"
-                  : activeStep === 1
-                    ? "Read-only scan running"
-                    : "Fix prompt ready"}
-              </div>
-              <div className="mini-lines">
-                <i />
-                <i />
-                <i />
-                <i />
-              </div>
-            </div>
-          </div>
-        )}
-      </section>
+      <StepsSection />
 
       <section className="sample grid-section">
         <div className="frame-label">
