@@ -15,7 +15,6 @@ export function MarketingView({ onEnter, onLogin }: { onEnter: (url: string) => 
   const [openFaq, setOpenFaq] = useState<number | null>(0);
   const [copied, setCopied] = useState(false);
   const [navScrolled, setNavScrolled] = useState(false);
-  const [siteType, setSiteType] = useState<"ai" | "any">("ai");
   const [legalDocument, setLegalDocument] = useState<LegalDocument | null>(null);
   const [botMessage, setBotMessage] = useState(
     "Give me a deployed URL. I’ll look for the things your launch sprint politely ignored."
@@ -101,37 +100,11 @@ export function MarketingView({ onEnter, onLogin }: { onEnter: (url: string) => 
         <AstralField />
         <div className="cross cross-tl" />
         <div className="cross cross-tr" />
-        <MicroLabel>PUBLIC EXPOSURE CHECKS / 2025</MicroLabel>
         <h1>Find what your website left open.</h1>
         <p className="hero-copy">
           {BRAND} checks apps built with Lovable, Bolt, Cursor and v0, and any other website you own, for leaked keys
           and open databases. Then it gives you the fix in plain English.
         </p>
-        <div className="hero-scope">
-          <div className="app-tabs" role="tablist" aria-label="Choose site type">
-            <button
-              className={siteType === "ai" ? "active" : ""}
-              role="tab"
-              aria-selected={siteType === "ai"}
-              onClick={() => setSiteType("ai")}
-            >
-              AI-built app
-            </button>
-            <button
-              className={siteType === "any" ? "active" : ""}
-              role="tab"
-              aria-selected={siteType === "any"}
-              onClick={() => setSiteType("any")}
-            >
-              Any website
-            </button>
-          </div>
-          <p>
-            {siteType === "ai"
-              ? "Lovable, Bolt, Cursor, v0, or another AI builder."
-              : "Any publicly reachable website is supported, regardless of how it was built."}
-          </p>
-        </div>
         <UrlForm onStart={beginScan} onFeedback={setBotMessage} />
         <p className="helper">
           You must prove you own or are authorised to scan the site. LeakLens will not scan unverified domains.
