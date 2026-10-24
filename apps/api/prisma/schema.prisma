@@ -50,7 +50,9 @@ model Verification {
   domainId      String
   method        String         // "dns_txt" | "meta_tag" | "file"
   token         String
-  status        String         @default("pending") // "pending" | "verified" | "failed"
+  tokenHash     String?
+  tokenPreview  String?
+  status        String         @default("pending") // "pending" | "verified" | "failed" | "expired"
   attempts      Int            @default(0)
   lastError     String?
   verifiedAt    DateTime?
@@ -62,6 +64,7 @@ model Verification {
 
   @@index([domainId])
   @@index([token])
+  @@index([tokenHash])
   @@map("verifications")
 }
 
@@ -74,6 +77,7 @@ model Scan {
   detectedStack Json           @default("[]") // string[]
   exposureScore Int?           // 0 - 100 exposure score based on checks run
   errorMessage  String?
+  metrics       Json?          // { assetsFetched, bytesRead, requestsMade }
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
 
@@ -103,18 +107,24 @@ model CheckRun {
 }
 
 model Finding {
-  id             String        @id @default(uuid())
-  scanId         String
-  type           String        // e.g., "LL-KEY-001"
-  severity       String        // "critical" | "high" | "medium" | "low"
-  status         String        @default("open") // "open" | "fixed" | "ignored"
-  location       String
-  maskedEvidence Json          // Strict masked evidence only. Never store raw secrets.
-  metadata       Json          @default("{}")
-  createdAt      DateTime      @default(now())
-  updatedAt      DateTime      @updatedAt
+  id                String        @id @default(uuid())
+  scanId            String
+  type              String        // e.g., "LL-SECRET-OPENAI", "LL-KEY-001"
+  severity          String        // "critical" | "high" | "medium" | "low"
+  status            String        @default("open") // "open" | "fixed" | "ignored"
+  location          String
+  title             String?
+  meaning           String?
+  why               String?
+  maskedEvidence    Json          // Strict masked evidence only. Never store raw secrets.
+  technicalSteps    Json?         // string[]
+  verificationSteps Json?         // string[]
+  references        Json?         // { title, url }[]
+  metadata          Json          @default("{}")
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
 
-  scan           Scan          @relation(fields: [scanId], references: [id], onDelete: Cascade)
+  scan              Scan          @relation(fields: [scanId], references: [id], onDelete: Cascade)
 
   @@index([scanId])
   @@index([status])
