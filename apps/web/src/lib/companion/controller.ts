@@ -5,6 +5,7 @@ import {
   transitionCompanionState,
 } from "./stateMachine";
 import { companionStorage } from "./storage";
+import { dialogueEngine } from "./dialogue";
 
 export type SpeechPriority = "idle" | "normal" | "priority";
 
@@ -84,6 +85,7 @@ export class CompanionController {
   private lastSpeechTime: number = 0;
   private idleTimer: ReturnType<typeof setTimeout> | null = null;
   private speechDismissTimer: ReturnType<typeof setTimeout> | null = null;
+  private firstVisitTimer: ReturnType<typeof setTimeout> | null = null;
   private subscribers = new Set<ControllerSubscriber>();
   private unsubs: Array<() => void> = [];
 
@@ -99,6 +101,15 @@ export class CompanionController {
     if (storage.firstVisit) {
       this.state = "curious";
       companionStorage.markVisited();
+      if (typeof window !== "undefined") {
+        this.firstVisitTimer = setTimeout(() => {
+          this.speak(
+            "first_visit_welcome",
+            "Welcome. I am your LeakLens guide. I follow along while you run checks.",
+            "normal"
+          );
+        }, 1500);
+      }
     } else {
       this.state = "idle";
     }
@@ -312,6 +323,12 @@ export class CompanionController {
     if (stateChanged) {
       this.notifySubscribers();
     }
+
+    // Attempt to select and speak a dialogue line for this event
+    const line = dialogueEngine.selectLineForEvent(event, payload, this.context);
+    if (line) {
+      this.speak(line.id, line.text, line.priority, line.actions);
+    }
   }
 
   // Speech scheduling
@@ -462,6 +479,7 @@ export class CompanionController {
 
   public destroy(): void {
     if (this.idleTimer) clearTimeout(this.idleTimer);
+    if (this.firstVisitTimer) clearTimeout(this.firstVisitTimer);
     this.clearSpeechDismissTimer();
     for (const unsub of this.unsubs) {
       unsub();
