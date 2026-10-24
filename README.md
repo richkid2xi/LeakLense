@@ -8,20 +8,31 @@ LeakLens is a passive security scanner designed for websites and web application
 .
 ├── apps/
 │   ├── web/        React 19 single-page application with Tailwind CSS v4 and mock/HTTP data adapters
-│   ├── api/        Express REST API service with Prisma ORM client and route controllers
-│   └── worker/     Background scan execution service powered by pg-boss
+│   ├── api/        Express REST API service with Prisma ORM client, verification modules, and audit logging
+│   └── worker/     Background scan execution pipeline powered by pg-boss
 └── packages/
-    ├── shared/     Domain types, Zod validation schemas, masking utilities, and plan definitions
-    └── kb/         Curated knowledge base entries, schema definitions, and fix prompt generator
+    ├── shared/     Browser-safe domain types, canonical finding schemas, and Zod validation
+    ├── security/   SSRF guard, IP-pinned Undici HTTP client, scope lock, and secret masking
+    ├── detectors/  Modular security detectors (secrets, CORS, sensitive files, honest Phase 1 stubs)
+    └── kb/         Curated knowledge base entries, schema definitions, and AI fix prompt generator
 ```
 
-## Tech Stack
+## Tech Stack & Architecture
 
-- **Frontend (`apps/web`)**: React 19, Vite 8, TypeScript, Tailwind CSS v4
-- **Backend API (`apps/api`)**: Node.js, Express, Prisma ORM, Supabase
-- **Worker Service (`apps/worker`)**: Node.js, pg-boss (Postgres-backed queue)
-- **Shared Libraries (`packages/shared`, `packages/kb`)**: TypeScript, Zod
-- **Monorepo & Package Management**: pnpm workspaces
+- **Frontend (`apps/web`)**: React 19, Vite 8, TypeScript, Tailwind CSS v4. Operates in mock mode (`VITE_USE_MOCK=true`) or connects to the Express API (`VITE_USE_MOCK=false`).
+- **Backend API (`apps/api`)**: Node.js, Express, Prisma ORM, Supabase Postgres. Implements domain ownership verification (DNS TXT, well-known file, meta tag), 30-day verification expiry, rate limiting per account/IP/domain, and immutable audit logging.
+- **Worker Service (`apps/worker`)**: Node.js, pg-boss job queue. Re-validates domain verification before every scan, executes the detection pipeline, and persists check runs and findings.
+- **Security Utilities (`packages/security`)**: SSRF guard blocking RFC 1918, CGNAT, loopback, cloud metadata (169.254.169.254), IPv4-mapped IPv6, decimal/octal/hex IP tricks, and userinfo injection. Pinned-IP Undici dispatcher prevents DNS rebinding TOCTOU attacks. Sets standard `LeakLensScanner/1.0 (+https://leaklens.com/about-scanner)` User-Agent.
+- **Detectors (`packages/detectors`)**: Pluggable detector modules taking a context abstraction (`fetchText`, `verifiedHostname`, `target`). Detects exposed OpenAI, Stripe secret, GitHub, AWS, and private keys while explicitly ignoring public publishable keys (`pk_`, Supabase anon, Firebase web key). Evaluates permissive CORS and checks reachable `.env` (extracts variable names only; never stores secrets) and `.git` folders.
+- **Knowledge Base & Prompts (`packages/kb`)**: Generates structured, copy-pasteable fix prompts tailored for Lovable, Bolt, Cursor, v0, or generic AI coding agents.
+
+## Verification & Trust Model
+
+1. **Public Suffix Rejection**: Multi-tenant platform root domains (`vercel.app`, `netlify.app`, `github.io`, `lovable.app`, `pages.dev`, `firebaseapp.com`, `railway.app`, `fly.dev`, etc.) cannot be verified at the apex level. Users must verify their specific subdomain (e.g. `your-app.lovable.app`) or custom domain.
+2. **30-Day Verification Expiry**: Verification challenges and domain ownership expire after 30 days. Domain status is re-checked prior to every scan. Scans cannot be initiated on unverified or expired domains.
+3. **Email Verification**: User accounts must have verified email addresses before initiating scans.
+4. **Ownership Affirmation**: Users must explicitly confirm site ownership/authorization (`authorized: true`) before queueing a scan; affirmations are immutably recorded in the security audit log.
+5. **Coverage Honesty**: The scanner never produces fake passes. For Phase 1 TODOs (Supabase open tables/RLS, storage buckets, Firebase rules), the pipeline reports `could_not_test` or `not_applicable`. On response truncation or timeout, checks report `could_not_test` with reasons, never `passed`.
 
 ## Prerequisites and Setup
 
@@ -29,11 +40,9 @@ LeakLens is a passive security scanner designed for websites and web application
 
 - Node.js (version 20 or later, version 22 recommended)
 - pnpm (version 10 or later)
-- PostgreSQL database instance (optional for UI mock development; required for running Prisma migrations and the worker queue)
+- PostgreSQL database instance (optional for UI mock development; required for running Prisma migrations and worker queue)
 
 ### Installation
-
-Clone the repository and install all workspace dependencies:
 
 ```bash
 git clone <repository-url>
@@ -43,7 +52,7 @@ pnpm install
 
 ### Environment Configuration
 
-Template environment files are provided for the repository root and each application. Copy the `.env.example` templates to create your local `.env` files:
+Template environment files are provided for the repository root and each application:
 
 ```bash
 cp .env.example .env
@@ -82,6 +91,22 @@ pnpm dev:worker
 pnpm dev:all
 ```
 
+## Running Tests
+
+All automated tests use fixtures only (no live network connections):
+
+```bash
+# Run all tests across the monorepo
+pnpm test
+
+# Run tests for specific packages
+pnpm --filter @leaklens/security test
+pnpm --filter @leaklens/detectors test
+pnpm --filter @leaklens/api test
+pnpm --filter @leaklens/worker test
+pnpm --filter @leaklens/kb test
+```
+
 ## Root Scripts
 
 | Script              | Description                                                                     |
@@ -92,28 +117,7 @@ pnpm dev:all
 | `pnpm dev:all`      | Runs web, API, and worker concurrently in parallel                              |
 | `pnpm build`        | Compiles and builds all workspace packages and applications recursively         |
 | `pnpm typecheck`    | Runs TypeScript type checking across all workspace packages with strict options |
+| `pnpm test`         | Executes all Vitest unit and integration tests across the monorepo              |
 | `pnpm lint`         | Lints JavaScript and TypeScript source files using ESLint                       |
 | `pnpm format`       | Formats all code files using Prettier                                           |
 | `pnpm format:check` | Verifies code formatting against Prettier rules without writing changes         |
-
-## Project Status
-
-- **Implemented**: Complete web application UI prototype (landing, dashboard, scan view, finding detail modal, fix prompt modal, domain verification modal, coverage documentation, settings), data-access layer abstraction with full mock adapter (`VITE_USE_MOCK=true`) and HTTP API client, shared TypeScript domain types and Zod validation schemas, Prisma schema definitions, Express API routing skeleton, worker pg-boss queue scaffolding, curated knowledge base template generator (`packages/kb`), and automated CI workflow.
-- **Not Yet Implemented**: Real scanner detector execution against live targets, Supabase Auth session validation, DNS and HTML meta tag live domain ownership verification, subscription billing webhooks and checkout sessions (Lemon Squeezy / Paddle / Paystack), and email dispatching (Resend).
-
-## Security and Responsible Use
-
-- **Ownership Verification**: Scans may only target domains and hosts explicitly verified as owned by the user via DNS TXT record or HTML meta tag. Scanning third-party or unverified domains is strictly prohibited.
-- **Passive and Read-Only**: Scanner checks perform non-destructive, read-only requests. Probes do not execute fuzzing, write operations, authentication bypass attacks, or brute-force requests.
-- **No Raw Secrets Stored**: Any detected credentials or secret keys are masked immediately at detection time (for example, `sk_live_••••••••••••4Kp2`). Raw secret values are never saved to the database, stored in logs, or returned in API payloads.
-- **Prompt Injection Defense**: Remediation prompt templates only interpolate validated identifier tokens (table names, bucket names) through strict schemas; untrusted network response bodies are never interpolated into prompt outputs.
-
-## Contributing
-
-1. Ensure all changes adhere to TypeScript strict mode.
-2. Run `pnpm lint`, `pnpm typecheck`, and `pnpm build` before committing.
-3. Keep pull requests focused on small, testable increments.
-
-## License
-
-MIT License placeholder. See LICENSE file for terms.

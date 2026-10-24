@@ -10,6 +10,7 @@
     "dev:worker": "pnpm --filter @leaklens/worker dev",
     "build": "pnpm --recursive run build",
     "typecheck": "pnpm --recursive run typecheck",
+    "test": "pnpm --recursive run test",
     "lint": "eslint .",
     "format": "prettier --write \"**/*.{ts,tsx,js,json,md}\"",
     "format:check": "prettier --check \"**/*.{ts,tsx,js,json,md}\""
