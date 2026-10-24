@@ -26,3 +26,7 @@ coverage/
 .DS_Store
 Thumbs.db
 
+# Donor folder (read-only reference)
+figma-import/
+
+
