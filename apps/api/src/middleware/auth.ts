@@ -25,12 +25,16 @@ export function requireAuth(req: Request, _res: Response, next: NextFunction): v
     return;
   }
 
-  // Placeholder authenticated user for development / scaffolding
+  // Support test headers for unit tests and local dev
+  const mockUserId = (req.headers["x-test-user-id"] as string) || "00000000-0000-0000-0000-000000000001";
+  const mockEmailVerified = req.headers["x-test-email-verified"] !== "false";
+
   req.user = {
-    id: "00000000-0000-0000-0000-000000000001",
-    email: "alex@example.com",
+    id: mockUserId,
+    email: `${mockUserId}@example.com`,
     name: "Alex Morgan",
     role: "user",
+    emailVerified: mockEmailVerified,
     createdAt: new Date(),
     updatedAt: new Date(),
   };

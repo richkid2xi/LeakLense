@@ -8,6 +8,7 @@ export const UserSchema = z.object({
   email: z.string().email(),
   name: z.string().min(1).max(100).nullable().optional(),
   role: UserRoleSchema.default("user"),
+  emailVerified: z.boolean().default(true).optional(),
   createdAt: z.coerce.date(),
   updatedAt: z.coerce.date(),
 });
