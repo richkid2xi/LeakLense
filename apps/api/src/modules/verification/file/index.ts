@@ -1,13 +1,9 @@
 import { DEFAULT_SCAN_LIMITS } from '@leaklens/shared'
-import { safeFetchText, type SafeResponse } from '@leaklens/security'
+import { isTruncatedOrTimeout, safeFetchText } from '@leaklens/security'
 import { matchesVerificationValue } from '../token'
-import type { VerificationCheckResult } from '../dns'
+import type { SafeTextFetcher, VerificationCheckResult } from '../types'
 
-export type SafeTextFetcher = (
-  url: string,
-  verifiedHostname: string,
-  limits?: typeof DEFAULT_SCAN_LIMITS,
-) => Promise<SafeResponse>
+export type { SafeTextFetcher }
 
 export const WELL_KNOWN_PATH = '/.well-known/leaklens.txt'
 export const MAX_FILE_BYTES = 8192
@@ -41,14 +37,6 @@ export async function verifyFileOwnership(
       }
     }
 
-    if (response.isTruncated) {
-      return {
-        verified: false,
-        checkedAt,
-        reason: `File at ${WELL_KNOWN_PATH} exceeded maximum allowed size of ${MAX_FILE_BYTES} bytes.`,
-      }
-    }
-
     const verified = matchesVerificationValue(response.body.trim(), expectedHash)
 
     return {
@@ -59,6 +47,15 @@ export async function verifyFileOwnership(
         : `File at ${WELL_KNOWN_PATH} did not contain the expected verification token.`,
     }
   } catch (err: unknown) {
+    const check = isTruncatedOrTimeout(err)
+    if (check.isTruncated) {
+      return {
+        verified: false,
+        checkedAt,
+        reason: `File at ${WELL_KNOWN_PATH} exceeded maximum allowed size of ${MAX_FILE_BYTES} bytes.`,
+      }
+    }
+
     const message = err instanceof Error ? err.message : String(err)
     return {
       verified: false,

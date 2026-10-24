@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import type { SafeResponse } from '@leaklens/security'
+import { ResponseTruncatedError, type SafeResponse } from '@leaklens/security'
 import { createVerificationChallenge } from '../token'
 import { verifyFileOwnership } from './index'
 
@@ -11,10 +11,10 @@ describe('verifyFileOwnership', () => {
       expect(host).toBe('example.com')
       return {
         status: 200,
-        headers: { 'content-type': 'text/plain' },
+        headers: new Headers({ 'content-type': 'text/plain' }),
         body: challenge.value,
-        isTruncated: false,
-        finalUrl: url,
+        bytes: challenge.value.length,
+        url,
       }
     }
 
@@ -25,12 +25,12 @@ describe('verifyFileOwnership', () => {
 
   it('fails when response status is not 200', async () => {
     const challenge = createVerificationChallenge()
-    const mockFetcher = async (): Promise<SafeResponse> => ({
+    const mockFetcher = async (url: string): Promise<SafeResponse> => ({
       status: 404,
-      headers: {},
+      headers: new Headers(),
       body: 'Not Found',
-      isTruncated: false,
-      finalUrl: 'https://example.com/.well-known/leaklens.txt',
+      bytes: 9,
+      url,
     })
 
     const result = await verifyFileOwnership('example.com', challenge.tokenHash, mockFetcher)
@@ -40,13 +40,9 @@ describe('verifyFileOwnership', () => {
 
   it('fails when response body is truncated (exceeded size limit)', async () => {
     const challenge = createVerificationChallenge()
-    const mockFetcher = async (): Promise<SafeResponse> => ({
-      status: 200,
-      headers: {},
-      body: challenge.value,
-      isTruncated: true,
-      finalUrl: 'https://example.com/.well-known/leaklens.txt',
-    })
+    const mockFetcher = async (): Promise<SafeResponse> => {
+      throw new ResponseTruncatedError('Response exceeded 8192 bytes limit', 8193, 8192)
+    }
 
     const result = await verifyFileOwnership('example.com', challenge.tokenHash, mockFetcher)
     expect(result.verified).toBe(false)
@@ -55,12 +51,12 @@ describe('verifyFileOwnership', () => {
 
   it('fails when token in file does not match', async () => {
     const challenge = createVerificationChallenge()
-    const mockFetcher = async (): Promise<SafeResponse> => ({
+    const mockFetcher = async (url: string): Promise<SafeResponse> => ({
       status: 200,
-      headers: {},
+      headers: new Headers(),
       body: 'leaklens-verification=different-token',
-      isTruncated: false,
-      finalUrl: 'https://example.com/.well-known/leaklens.txt',
+      bytes: 37,
+      url,
     })
 
     const result = await verifyFileOwnership('example.com', challenge.tokenHash, mockFetcher)

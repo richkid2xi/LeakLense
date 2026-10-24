@@ -1,11 +1,8 @@
 import { resolveTxt } from 'node:dns/promises'
 import { matchesVerificationValue } from '../token'
+import type { VerificationCheckResult } from '../types'
 
-export interface VerificationCheckResult {
-  verified: boolean
-  checkedAt: string
-  reason?: string
-}
+export type { VerificationCheckResult }
 
 export type DnsResolver = (hostname: string) => Promise<string[][]>
 
