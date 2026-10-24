@@ -108,29 +108,220 @@
   letter-spacing: .14em;
   text-shadow: 0 0 10px rgba(143,180,255,.35);
 }
-.charts { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin: 60px 0 80px; }
-.chart-card { height: 280px; position: relative; padding: 18px; border: 1px solid rgba(143,180,255,.35); background: rgba(1,15,46,.26); }
-.chart-card.interactive-card {
-  height: auto;
-  min-height: 295px;
+/* What We Find — Clean Honest Minimal Cards */
+.find-cards-section {
+  margin: 52px 0 76px;
+}
+
+.find-cards-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 18px;
+  align-items: stretch;
+}
+
+.find-card {
+  background: rgba(243, 243, 240, 0.05);
+  border: 1px solid rgba(243, 243, 240, 0.18);
+  border-radius: 3px;
+  padding: 26px;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  padding: 22px 20px 20px;
-  background: rgba(3, 15, 48, 0.45);
-  border: 1px solid rgba(143, 180, 255, 0.35);
-  transition: transform 200ms ease, border-color 200ms ease, background 200ms ease;
+  min-height: 380px;
+  transition: border-color 180ms ease, background 180ms ease;
+  position: relative;
+  text-align: left;
 }
-.chart-card.interactive-card:hover {
-  transform: translateY(-2px);
-  border-color: rgba(143, 180, 255, 0.65);
-  background: rgba(3, 15, 48, 0.7);
+
+.find-card:hover {
+  border-color: rgba(243, 243, 240, 0.35);
+  background: rgba(243, 243, 240, 0.07);
 }
-.chart-head { display: flex; justify-content: space-between; font: 500 12px "JetBrains Mono"; letter-spacing: .1em; }
-.chart-head small { color: #aecdff; font-weight: 500; }
-.bars { position: absolute; left: 18px; right: 18px; bottom: 45px; height: 170px; display: flex; align-items: flex-end; gap: 6px; border-bottom: 1px solid rgba(143,180,255,.4); background-image: repeating-linear-gradient(0deg, rgba(143,180,255,.1) 0, rgba(143,180,255,.1) 1px, transparent 1px, transparent 34px); }
-.bars i { flex: 1; background: var(--blue-light); opacity: .82; }
-.chart-index { position: absolute; right: 18px; bottom: 16px; color: #aecdff; font: 500 12px "JetBrains Mono"; }
+
+.find-card-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 18px;
+}
+
+.find-card-num {
+  font: 500 11px/1 "JetBrains Mono", monospace;
+  letter-spacing: .12em;
+  color: var(--blue-light);
+}
+
+.find-card-chips {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.find-card-chip {
+  font: 500 11px/1 "JetBrains Mono", monospace;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: #dbe4ff;
+  background: rgba(143, 180, 255, 0.12);
+  border: 1px solid rgba(143, 180, 255, 0.25);
+  padding: 3px 7px;
+  border-radius: 2px;
+}
+
+.find-card-chip.chip-dev {
+  color: #ffd8a8;
+  background: rgba(255, 180, 80, 0.1);
+  border-color: rgba(255, 180, 80, 0.28);
+}
+
+.find-card-title {
+  font: 500 20px/1.25 "Inter", sans-serif;
+  color: #F3F3F0;
+  margin: 0 0 10px;
+}
+
+.find-card-desc {
+  font: 400 15px/1.5 "Inter", sans-serif;
+  color: rgba(243, 243, 240, 0.72);
+  margin: 0 0 20px;
+  flex: 1 0 auto;
+}
+
+.find-card-evidence-wrap {
+  background: rgba(1, 10, 32, 0.65);
+  border: 1px solid rgba(243, 243, 240, 0.12);
+  border-radius: 2px;
+  padding: 12px 14px;
+  margin-bottom: 14px;
+  min-height: 82px;
+  height: 82px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  overflow-x: auto;
+}
+
+.find-card-evidence-wrap:focus-visible {
+  outline: 2px solid var(--blue-light);
+  outline-offset: 1px;
+}
+
+.find-card-evidence-inner {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  animation: evidenceCrossfade 180ms ease both;
+}
+
+@keyframes evidenceCrossfade {
+  from { opacity: 0; transform: translateY(2px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.find-card-code {
+  font: 400 13px/1.4 "JetBrains Mono", monospace;
+  color: #8FB4FF;
+  overflow-x: auto;
+  white-space: nowrap;
+}
+
+.find-card-caption {
+  font: 400 12px/1.4 "Inter", sans-serif;
+  color: rgba(243, 243, 240, 0.75);
+  margin-top: 2px;
+}
+
+.find-card-state-line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 18px;
+  min-height: 20px;
+  animation: evidenceCrossfade 180ms ease both;
+}
+
+.find-card-state-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.find-card-state-dot.dot-issue {
+  background: var(--high);
+}
+
+.find-card-state-dot.dot-fixed {
+  background: #86efac;
+}
+
+.find-card-state-label {
+  font: 500 12px "JetBrains Mono", monospace;
+  color: #F3F3F0;
+}
+
+.find-card-toggle {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  background: rgba(1, 10, 32, 0.55);
+  border: 1px solid rgba(243, 243, 240, 0.16);
+  border-radius: 3px;
+  padding: 3px;
+  gap: 2px;
+}
+
+.find-card-toggle-btn {
+  font: 500 12px "JetBrains Mono", monospace;
+  color: rgba(243, 243, 240, 0.65);
+  background: transparent;
+  border: none;
+  padding: 7px 10px;
+  border-radius: 2px;
+  cursor: pointer;
+  text-align: center;
+  transition: background 140ms ease, color 140ms ease;
+}
+
+.find-card-toggle-btn:hover {
+  color: #F3F3F0;
+  background: rgba(243, 243, 240, 0.08);
+}
+
+.find-card-toggle-btn.is-active {
+  color: #FFFFFF;
+  background: rgba(31, 79, 216, 0.75);
+  font-weight: 600;
+}
+
+.find-card-toggle-btn:focus-visible {
+  outline: 2px solid var(--blue-light);
+  outline-offset: 1px;
+}
+
+.find-cards-footnote {
+  margin-top: 28px;
+  text-align: center;
+}
+
+.find-cards-footnote-link {
+  font: 500 13px "JetBrains Mono", monospace;
+  color: #AECDFF;
+  text-decoration: none;
+  border-bottom: 1px solid rgba(174, 205, 255, 0.35);
+  padding-bottom: 2px;
+  transition: color 140ms ease, border-color 140ms ease;
+}
+
+.find-cards-footnote-link:hover {
+  color: #FFFFFF;
+  border-color: #FFFFFF;
+}
+
+.find-cards-footnote-link:focus-visible {
+  outline: 2px solid var(--blue-light);
+  outline-offset: 2px;
+}
 .blue-notes { display: grid; grid-template-columns: 1fr 1fr; gap: 8%; padding-top: 45px; border-top: 1px solid rgba(143,180,255,.3); }
 .blue-notes article { max-width: 460px; }
 .blue-notes h3 { margin: 18px 0; font: 400 35px/1 "Instrument Serif"; }
@@ -241,7 +432,7 @@ footer { overflow: hidden; padding: 70px 32px 18px; color: #aaa; background: var
   .section-intro h2, .process h2, .section-title h2, .faq h2 { font-size: 50px; }
   .checklist div { grid-template-columns: 40px 1fr auto; padding: 0 13px; }.checklist p { font-size: 14px; }
   .blue-inner { padding: 78px 20px; }.blue-heading h2 { font-size: 65px; }
-  .charts { grid-template-columns: 1fr; margin: 50px 0 65px; }.chart-card { height: 230px; }.bars { height: 130px; }
+  .find-cards-grid { grid-template-columns: 1fr; gap: 16px; margin: 40px 0 55px; }
   .blue-notes { grid-template-columns: 1fr; gap: 45px; }
   .process { padding-left: 20px; padding-right: 20px; }.process-copy h2 { font-size: 52px; }
   .card-stack { min-height: 350px; }.stack-card { width: 85%; left: 5%; height: 290px; }
@@ -259,6 +450,8 @@ footer { overflow: hidden; padding: 70px 32px 18px; color: #aaa; background: var
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
   .scanline { animation: none; top: 160px; }
+  .find-card-evidence-inner,
+  .find-card-state-line { animation: none; }
 }
 
 /* Logged-in product */
@@ -763,16 +956,11 @@ button:active, .button:active, .app-card:active { transform: translateY(1px) sca
 
 .reveal-target { opacity: 0; transform: translateY(22px); transition: opacity 700ms cubic-bezier(.2,.8,.2,1), transform 700ms cubic-bezier(.2,.8,.2,1); }
 .reveal-target.is-visible { opacity: 1; transform: none; }
-.chart-card.reveal-target:nth-child(2), .safety-cards article.reveal-target:nth-child(2) { transition-delay: 100ms; }
-.chart-card.reveal-target:nth-child(3) { transition-delay: 200ms; }
-.bars i { transform: scaleY(0); transform-origin: bottom; }
-.blue-band.is-visible .bars i { animation: chartGrow 800ms cubic-bezier(.2,.8,.2,1) forwards; }
-.blue-band.is-visible .bars i:nth-child(2) { animation-delay: 70ms; }.blue-band.is-visible .bars i:nth-child(3) { animation-delay: 140ms; }.blue-band.is-visible .bars i:nth-child(4) { animation-delay: 210ms; }.blue-band.is-visible .bars i:nth-child(5) { animation-delay: 280ms; }.blue-band.is-visible .bars i:nth-child(6) { animation-delay: 350ms; }.blue-band.is-visible .bars i:nth-child(7) { animation-delay: 420ms; }
-@keyframes chartGrow { to { transform: scaleY(1); } }
-.checklist div, .faq-list button, .safety-cards article, .chart-card { transition: background 180ms ease, transform 180ms ease, border-color 180ms ease; }
+.find-card.reveal-target:nth-child(2), .safety-cards article.reveal-target:nth-child(2) { transition-delay: 100ms; }
+.find-card.reveal-target:nth-child(3) { transition-delay: 200ms; }
+.checklist div, .faq-list button, .safety-cards article { transition: background 180ms ease, transform 180ms ease, border-color 180ms ease; }
 .checklist div:hover, .faq-list button:hover { background: white; transform: translateX(3px); }
-.safety-cards article:hover, .chart-card:hover { transform: translateY(-3px); }
-.blue-band .chart-card:hover { border-color: var(--blue-light); background: rgba(1,15,46,.42); }
+.safety-cards article:hover { transform: translateY(-3px); }
 .app-back, .scan-meta button, .review-critical { display: inline-flex; align-items: center; gap: 5px; }
 .drawer-head button, .app-card footer strong { display: flex; align-items: center; gap: 4px; }
 .scan-stepper .material-symbols-outlined { font-size: 14px; }

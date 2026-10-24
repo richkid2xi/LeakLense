@@ -5,7 +5,7 @@ import { Companion } from "../components/common/Companion";
 import { Arrow, MaterialIcon } from "../components/common/MaterialIcon";
 import { MicroLabel } from "../components/common/MicroLabel";
 import { CoverageContent } from "../components/marketing/CoverageContent";
-import { InteractiveFindingCards } from "../components/marketing/InteractiveFindingCards";
+import { FindingCards } from "../components/marketing/FindingCards";
 import { HeroScanCard } from "../components/marketing/HeroScanCard";
 import { UrlForm } from "../components/marketing/UrlForm";
 import { LegalDocument, LegalModal } from "../components/modals/LegalModal";
@@ -51,7 +51,7 @@ export function MarketingView({ onEnter, onLogin }: { onEnter: (url: string) => 
     onScroll();
     window.addEventListener("scroll", onScroll, { passive: true });
     const nodes = document.querySelectorAll(
-      ".grid-section, .blue-band, .chart-card, .safety-cards article, .finding-card"
+      ".grid-section, .blue-band, .find-card, .safety-cards article, .finding-card"
     );
     nodes.forEach((node) => node.classList.add("reveal-target"));
     const observer = new IntersectionObserver(
@@ -204,7 +204,7 @@ export function MarketingView({ onEnter, onLogin }: { onEnter: (url: string) => 
             <h2>What we find.</h2>
             <p>Focused checks for the mistakes that matter most in public, AI-built apps.</p>
           </div>
-          <InteractiveFindingCards />
+          <FindingCards />
           <div className="blue-notes">
             <article>
               <MicroLabel>HOW WE CHECK</MicroLabel>
