@@ -6,7 +6,7 @@ import { Arrow, MaterialIcon } from "../components/common/MaterialIcon";
 import { MicroLabel } from "../components/common/MicroLabel";
 import { CoverageContent } from "../components/marketing/CoverageContent";
 import { InteractiveFindingCards } from "../components/marketing/InteractiveFindingCards";
-import { LayerDiagram } from "../components/marketing/LayerDiagram";
+import { HeroScanCard } from "../components/marketing/HeroScanCard";
 import { UrlForm } from "../components/marketing/UrlForm";
 import { LegalDocument, LegalModal } from "../components/modals/LegalModal";
 
@@ -159,7 +159,7 @@ export function MarketingView({ onEnter, onLogin }: { onEnter: (url: string) => 
           <button onClick={() => setLegalDocument("terms")}>Terms of Service</button> and acknowledge the{" "}
           <button onClick={() => setLegalDocument("privacy")}>Privacy Policy</button>.
         </p>
-        <LayerDiagram />
+        <HeroScanCard />
       </section>
 
       <section className="stats grid-section">
