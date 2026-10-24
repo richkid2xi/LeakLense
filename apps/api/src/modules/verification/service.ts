@@ -38,7 +38,10 @@ export async function startDomainVerification(
 
   // 1. Ownership check: domain must exist and belong to the user
   const domain = await prisma.domain.findFirst({
-    where: { id: domainId, userId },
+    where: {
+      userId,
+      OR: [{ id: domainId }, { hostname: domainId }],
+    },
   })
 
   if (!domain) {
@@ -111,7 +114,10 @@ export async function checkDomainVerification(
 ): Promise<VerificationCheckResult> {
   // 1. Ownership check
   const domain = await prisma.domain.findFirst({
-    where: { id: domainId, userId },
+    where: {
+      userId,
+      OR: [{ id: domainId }, { hostname: domainId }],
+    },
   })
 
   if (!domain) {
@@ -211,7 +217,10 @@ export async function assertDomainScanEligible(
   prisma: PrismaClient,
 ): Promise<{ eligible: true; domain: { id: string; hostname: string } }> {
   const domain = await prisma.domain.findFirst({
-    where: { id: domainId, userId },
+    where: {
+      userId,
+      OR: [{ id: domainId }, { hostname: domainId }],
+    },
   })
 
   if (!domain) {
