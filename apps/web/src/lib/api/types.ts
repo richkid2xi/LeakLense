@@ -44,6 +44,7 @@ export interface UiScanDetail {
   findings: UiFinding[];
   checksRun: UiCheckRun[];
   status?: string;
+  errorMessage?: string;
   metrics?: {
     stage?: string;
     stepIndex?: number;

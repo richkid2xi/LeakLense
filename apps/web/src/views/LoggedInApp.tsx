@@ -170,9 +170,42 @@ export function LoggedInApp({
   const [isComparing, setIsComparing] = useState<boolean>(false);
   const [isRescanningFromCompare, setIsRescanningFromCompare] = useState<boolean>(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState<boolean>(false);
+  const [emailNotifications, setEmailNotifications] = useState<boolean>(true);
+
+  // Toast Notification State
+  interface ToastItem {
+    id: string;
+    message: string;
+    type: "success" | "error" | "info";
+  }
+  const [toasts, setToasts] = useState<ToastItem[]>([]);
+  const showToast = (message: string, type: "success" | "error" | "info" = "info") => {
+    const id = `${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+    setToasts((prev) => [...prev, { id, message, type }]);
+    setTimeout(() => {
+      setToasts((prev) => prev.filter((t) => t.id !== id));
+    }, 4500);
+  };
+  const dismissToast = (id: string) => {
+    setToasts((prev) => prev.filter((t) => t.id !== id));
+  };
+
+  // Custom Confirmation Modal State (replaces window.confirm)
+  const [confirmModal, setConfirmModal] = useState<{
+    isOpen: boolean;
+    title: string;
+    description: string;
+    confirmText: string;
+    danger?: boolean;
+    onConfirm: () => Promise<void> | void;
+    isLoading?: boolean;
+  } | null>(null);
 
   const handleSaveProfile = async () => {
-    if (!profileName.trim()) return;
+    if (!profileName.trim()) {
+      showToast("Please enter a valid display name.", "error");
+      return;
+    }
     try {
       const { error } = await supabase.auth.updateUser({
         data: { full_name: profileName.trim() },
@@ -180,38 +213,71 @@ export function LoggedInApp({
       if (error) throw error;
       setUser((prev) => (prev ? { ...prev, name: profileName.trim() } : prev));
       setActionMessage("Profile details updated.");
+      showToast("Username updated successfully.", "success");
     } catch (err: any) {
       setActionMessage(err.message || "Failed to update profile.");
+      showToast(err.message || "Failed to update profile.", "error");
     }
   };
 
-  const handleDeleteDomain = async (id: string, hostname: string) => {
-    if (!window.confirm(`Are you sure you want to remove ${hostname}? This will delete associated scan records.`)) return;
-    try {
-      await api.deleteDomain(id);
-      const updatedDomains = await api.getDomains();
-      setDomains(updatedDomains);
-      const updatedScans = await api.getScans();
-      setScans(updatedScans);
-      setActionMessage(`Removed ${hostname}.`);
-    } catch (err: any) {
-      setActionMessage(err.message || "Failed to remove domain.");
-    }
+  const promptDeleteDomain = (id: string, hostname: string) => {
+    setConfirmModal({
+      isOpen: true,
+      title: "Remove App",
+      description: `Are you sure you want to remove "${hostname}"? This domain will become unowned and its recorded scan history will be deleted.`,
+      confirmText: "Remove App",
+      danger: true,
+      onConfirm: async () => {
+        try {
+          await api.deleteDomain(id);
+          const [updatedDomains, updatedScans] = await Promise.all([
+            api.getDomains(),
+            api.getScans(),
+          ]);
+          setDomains(updatedDomains);
+          setScans(updatedScans);
+          setActionMessage(`Removed ${hostname}.`);
+          showToast(`"${hostname}" removed from your applications.`, "info");
+        } catch (err: any) {
+          setActionMessage(err.message || "Failed to remove domain.");
+          showToast(err.message || "Failed to remove domain.", "error");
+        } finally {
+          setConfirmModal(null);
+        }
+      },
+    });
   };
 
-  const handleDeleteWorkspace = async () => {
-    if (!window.confirm("Are you sure? This will delete all your registered apps and scan history.")) return;
-    try {
-      for (const d of domains) {
-        await api.deleteDomain(d.id);
-      }
-      setDomains([]);
-      setScans([]);
-      setFindings([]);
-      setActionMessage("Workspace cleared.");
-    } catch (err: any) {
-      setActionMessage(err.message || "Failed to clear workspace.");
-    }
+  const promptDeleteAccount = () => {
+    setConfirmModal({
+      isOpen: true,
+      title: "Delete Account & Workspace",
+      description: "Are you sure you want to delete your account? All registered applications, verified domain ownerships, and historical scan results will be permanently removed. This action cannot be undone.",
+      confirmText: "Delete Account",
+      danger: true,
+      onConfirm: async () => {
+        try {
+          for (const d of domains) {
+            try {
+              await api.deleteDomain(d.id);
+            } catch {
+              // ignore cascade errors
+            }
+          }
+          await supabase.auth.signOut();
+          setDomains([]);
+          setScans([]);
+          setFindings([]);
+          showToast("Your account and all associated workspace data have been deleted.", "info");
+          onLogout();
+        } catch (err: any) {
+          setActionMessage(err.message || "Failed to clear account.");
+          showToast(err.message || "Failed to clear account.", "error");
+        } finally {
+          setConfirmModal(null);
+        }
+      },
+    });
   };
 
   useEffect(() => {
@@ -376,11 +442,17 @@ export function LoggedInApp({
 
             if (onSuccess) onSuccess(latest);
             setScreen("results");
+            showToast(
+              `Scan completed successfully for ${latest.url || url || "your app"}! Score: ${latest.exposureScore}/100`,
+              "success"
+            );
           }, 350);
         } else if (isFailed) {
           clearInterval(interval);
           setScanLoading(false);
-          if (onFailure) onFailure("Scan execution failed.");
+          const failMsg = latest.errorMessage || "Scan execution failed.";
+          if (onFailure) onFailure(failMsg);
+          showToast(`Scan failed: ${failMsg}`, "error");
           nav("failed");
         } else {
           // Live stage tracking: use real stage reported by worker or progress based on check completion
@@ -403,7 +475,9 @@ export function LoggedInApp({
         if (attempts >= maxAttempts) {
           clearInterval(interval);
           setScanLoading(false);
-          if (onFailure) onFailure(err?.message);
+          const msg = err?.message || "Scan timed out.";
+          if (onFailure) onFailure(msg);
+          showToast(`Scan failed: ${msg}`, "error");
           nav("failed");
         }
       }
@@ -491,10 +565,8 @@ export function LoggedInApp({
     : "U";
   const userName = user?.name || "Account";
   const userEmail = user?.email || "";
-
   const appDisplay: string =
     domains[0]?.hostname || (url ? url.replace(/^https?:\/\//, "").split("/")[0] : "") || "New App";
-  const appInitials = appDisplay.slice(0, 2).toUpperCase();
 
   const companionMessage =
     actionMessage ||
@@ -572,12 +644,14 @@ export function LoggedInApp({
       companionEvents.emit("verification_succeeded", { domain: url });
       api.getDomains().then(setDomains).catch(() => {});
       setActionMessage("Domain ownership verified successfully! You can now start the scan.");
+      showToast(`Domain "${url}" verified successfully! Ready to scan.`, "success");
     } else {
       const failReason = result.message || "We could not find the verification value on your site yet.";
       companionEvents.emit("verification_failed", {
         reason: failReason,
       });
       setActionMessage(failReason);
+      showToast(`Verification failed: ${failReason}`, "error");
     }
   };
 
@@ -597,6 +671,7 @@ export function LoggedInApp({
     } catch (err: any) {
       setScanLoading(false);
       setActionMessage(err?.message || "Failed to start scan.");
+      showToast(err?.message || "Failed to start scan.", "error");
       nav("failed");
     }
   };
@@ -651,8 +726,11 @@ export function LoggedInApp({
           [domain.id]: msg,
         }));
         setActionMessage(msg);
+        showToast(msg, "error");
       } else {
-        setActionMessage(err?.message || "Failed to start rescan.");
+        const msg = err?.message || "Failed to start rescan.";
+        setActionMessage(msg);
+        showToast(msg, "error");
       }
     }
   };
@@ -787,6 +865,49 @@ export function LoggedInApp({
             <MaterialIcon>settings</MaterialIcon>Settings
           </button>
         </nav>
+        <div className="mobile-drawer-account">
+          <div className="mobile-drawer-user">
+            <span className="user-avatar">{userInitials}</span>
+            <div className="user-info">
+              <strong>{userName}</strong>
+              <small>{userEmail}</small>
+            </div>
+          </div>
+          <div className="mobile-drawer-actions">
+            {onViewHome && (
+              <button
+                type="button"
+                className="drawer-action-btn"
+                onClick={() => {
+                  setMobileMenuOpen(false);
+                  onViewHome();
+                }}
+              >
+                <MaterialIcon>home</MaterialIcon> Landing page
+              </button>
+            )}
+            <button
+              type="button"
+              className="drawer-action-btn"
+              onClick={() => {
+                setMobileMenuOpen(false);
+                nav("settings");
+              }}
+            >
+              <MaterialIcon>person</MaterialIcon> Account settings
+            </button>
+            <button
+              type="button"
+              className="drawer-action-btn logout-btn"
+              onClick={() => {
+                setMobileMenuOpen(false);
+                onLogout();
+              }}
+            >
+              <MaterialIcon>logout</MaterialIcon> Log out
+            </button>
+          </div>
+        </div>
       </aside>
       <div className="app-main">
         <header className="app-topbar">
@@ -799,11 +920,20 @@ export function LoggedInApp({
             >
               <MaterialIcon>menu</MaterialIcon>
             </button>
-            <button className="app-switcher" onClick={() => nav("apps")}>
-              <span>{appInitials}</span>
-              <b>{appDisplay}</b>
-              <MaterialIcon>expand_more</MaterialIcon>
-            </button>
+            <div className="topbar-breadcrumb">
+              <span className="crumb-brand">LeakLens</span>
+              <span className="crumb-divider">/</span>
+              <span className="crumb-screen">
+                {screen === "new" ? "New Scan" :
+                 screen === "verify" ? "Verification" :
+                 screen === "progress" ? "Scanning" :
+                 screen === "results" ? "Report" :
+                 screen === "history" ? "Scans" :
+                 screen === "apps" ? "Applications" :
+                 screen === "compare" ? "Compare" :
+                 screen === "settings" ? "Settings" : "Overview"}
+              </span>
+            </div>
           </div>
           <div className="account-wrap">
             <button className="account-button" onClick={() => setAccountOpen(!accountOpen)}>
@@ -1580,13 +1710,27 @@ export function LoggedInApp({
                             nav("history");
                           }}
                         >
-                          <div>
-                            <span>{d.hostname.slice(0, 2).toUpperCase()}</span>
-                            <i
-                              className={`status-dot ${
-                                isVerifiedActive ? "verified" : isExpired ? "expired" : "pending"
-                              }`}
-                            />
+                          <div className="app-card-top-row">
+                            <div>
+                              <span>{d.hostname.slice(0, 2).toUpperCase()}</span>
+                              <i
+                                className={`status-dot ${
+                                  isVerifiedActive ? "verified" : isExpired ? "expired" : "pending"
+                                }`}
+                              />
+                            </div>
+                            <button
+                              type="button"
+                              className="app-card-remove-btn"
+                              title={`Remove ${d.hostname}`}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                promptDeleteDomain(d.id, d.hostname);
+                              }}
+                              aria-label={`Remove ${d.hostname}`}
+                            >
+                              <MaterialIcon>delete</MaterialIcon>
+                            </button>
                           </div>
                           <MicroLabel>
                             {isVerifiedActive
@@ -1698,7 +1842,14 @@ export function LoggedInApp({
                       </label>
                       <label>
                         EMAIL
-                        <input value={userEmail} readOnly />
+                        <input
+                          value={userEmail}
+                          disabled
+                          readOnly
+                          className="input-disabled"
+                          title="Account email address cannot be modified"
+                        />
+                        <span className="field-helper-muted">Email address cannot be changed</span>
                       </label>
                       <button className="button" onClick={handleSaveProfile}>
                         Save profile
@@ -1744,7 +1895,7 @@ export function LoggedInApp({
                               )}
                               <button
                                 className="action-delete"
-                                onClick={() => handleDeleteDomain(d.id, d.hostname)}
+                                onClick={() => promptDeleteDomain(d.id, d.hostname)}
                               >
                                 Remove
                               </button>
@@ -1760,15 +1911,35 @@ export function LoggedInApp({
                       <p>Choose what reaches your inbox.</p>
                     </div>
                     <label className="toggle-row">
-                      <input type="checkbox" defaultChecked /> Email me when a scan finishes
+                      <input
+                        type="checkbox"
+                        checked={emailNotifications}
+                        onChange={(e) => {
+                          const checked = e.target.checked;
+                          setEmailNotifications(checked);
+                          showToast(
+                            checked
+                              ? "Email notifications enabled: Scan completion reports will be sent to your inbox."
+                              : "Email notifications disabled: No emails will be sent for completed scans.",
+                            "info"
+                          );
+                        }}
+                      />
+                      Email me when a scan finishes
                     </label>
                   </section>
                   <section className="danger-zone">
                     <div>
                       <h3>Danger zone</h3>
-                      <p>Permanently delete this workspace and its scan history.</p>
+                      <p>Permanently delete your account, registered apps, and all scan records.</p>
                     </div>
-                    <button onClick={handleDeleteWorkspace}>Clear workspace</button>
+                    <button
+                      type="button"
+                      className="button-danger"
+                      onClick={promptDeleteAccount}
+                    >
+                      Delete account
+                    </button>
                   </section>
                 </div>
               </section>
@@ -1779,6 +1950,76 @@ export function LoggedInApp({
       {selected && <FindingDrawer finding={selected} onClose={() => setSelected(null)} onStatus={updateStatus} />}
       <Companion message={companionMessage} />
       {legalDocument && <LegalModal document={legalDocument} onClose={() => setLegalDocument(null)} />}
+
+      {/* Toast Notification Container */}
+      {toasts.length > 0 && (
+        <div className="toast-container" aria-live="polite">
+          {toasts.map((t) => (
+            <div key={t.id} className={`toast-item toast-${t.type}`} role="alert">
+              <div className="toast-icon">
+                <MaterialIcon>
+                  {t.type === "success" ? "check_circle" : t.type === "error" ? "error" : "info"}
+                </MaterialIcon>
+              </div>
+              <div className="toast-content">{t.message}</div>
+              <button
+                type="button"
+                className="toast-close-btn"
+                onClick={() => dismissToast(t.id)}
+                aria-label="Dismiss notification"
+              >
+                <MaterialIcon>close</MaterialIcon>
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Clean Custom Confirmation Modal (No browser native alert/confirm) */}
+      {confirmModal && confirmModal.isOpen && (
+        <div
+          className="confirm-modal-scrim"
+          onClick={() => !confirmModal.isLoading && setConfirmModal(null)}
+        >
+          <div
+            className="confirm-modal-card"
+            onClick={(e) => e.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+          >
+            <div className="confirm-modal-header">
+              <div className={`confirm-modal-icon ${confirmModal.danger ? "" : "icon-info"}`}>
+                <MaterialIcon>warning</MaterialIcon>
+              </div>
+              <div>
+                <h3>{confirmModal.title}</h3>
+                <p>{confirmModal.description}</p>
+              </div>
+            </div>
+            <div className="confirm-modal-actions">
+              <button
+                type="button"
+                className="button"
+                disabled={confirmModal.isLoading}
+                onClick={() => setConfirmModal(null)}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className={`button ${confirmModal.danger ? "button-danger" : "primary"}`}
+                disabled={confirmModal.isLoading}
+                onClick={async () => {
+                  setConfirmModal((prev) => (prev ? { ...prev, isLoading: true } : null));
+                  await confirmModal.onConfirm();
+                }}
+              >
+                {confirmModal.isLoading ? "Processing..." : confirmModal.confirmText}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -159,6 +159,7 @@ export const httpAdapter = {
       detectedStack: data.scan.detectedStack || [],
       findings,
       status: data.scan.status,
+      errorMessage: data.scan.errorMessage,
       metrics: data.scan.metrics,
       checksRun: (data.checksRun || []).map((c: any) => ({
         name: c.title,
