@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState } from "react";
 import { companionEvents } from "../lib/companion/events";
 import { BRAND, builderBrands, checks, faqs } from "../constants/marketing";
 import { Companion } from "../components/common/Companion";
@@ -10,16 +10,52 @@ import { HeroScanCard } from "../components/marketing/HeroScanCard";
 import { StepsSection } from "../components/marketing/StepsSection";
 import { UrlForm } from "../components/marketing/UrlForm";
 import { LegalDocument, LegalModal } from "../components/modals/LegalModal";
+import { getPublicStats } from "../lib/api";
 
-export function MarketingView({ onEnter, onLogin }: { onEnter: (url: string) => void; onLogin: () => void }) {
+export function MarketingView({
+  onEnter,
+  onLogin,
+  isLoggedIn = false,
+  user = null,
+  onGoToApp,
+}: {
+  onEnter: (url: string) => void;
+  onLogin: () => void;
+  isLoggedIn?: boolean;
+  user?: { email?: string; name?: string } | null;
+  onGoToApp?: () => void;
+}) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [openFaq, setOpenFaq] = useState<number | null>(0);
   const [copied, setCopied] = useState(false);
   const [navScrolled, setNavScrolled] = useState(false);
   const [legalDocument, setLegalDocument] = useState<LegalDocument | null>(null);
+  const [userCount, setUserCount] = useState<number | null>(null);
+
+  const userInitials = user?.name
+    ? user.name
+        .trim()
+        .split(/\s+/)
+        .map((w) => w[0])
+        .join("")
+        .toUpperCase()
+        .slice(0, 2)
+    : user?.email
+      ? user.email.slice(0, 2).toUpperCase()
+      : "U";
   const [botMessage, setBotMessage] = useState(
     "Give me a deployed URL. I’ll look for the things your launch sprint politely ignored."
   );
+
+  useEffect(() => {
+    getPublicStats()
+      .then((stats) => {
+        if (typeof stats.userCount === "number") {
+          setUserCount(stats.userCount);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     if (legalDocument) {
@@ -32,7 +68,6 @@ export function MarketingView({ onEnter, onLogin }: { onEnter: (url: string) => 
   const fullHeadline = "Find what your website left open.";
   const [typedHeadline, setTypedHeadline] = useState("");
   const [typingComplete, setTypingComplete] = useState(false);
-  const typingStartedRef = useRef(false);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -43,12 +78,15 @@ export function MarketingView({ onEnter, onLogin }: { onEnter: (url: string) => 
     }
 
     let interval: ReturnType<typeof setInterval> | null = null;
+    let fallbackTimeout: ReturnType<typeof setTimeout> | null = null;
     let index = 0;
+    let isStarted = false;
 
     const startTyping = () => {
-      if (typingStartedRef.current) return;
-      typingStartedRef.current = true;
-      if (interval) return;
+      if (isStarted) return;
+      isStarted = true;
+      if (interval) clearInterval(interval);
+      index = 0;
       interval = setInterval(() => {
         index++;
         setTypedHeadline(fullHeadline.slice(0, index));
@@ -56,7 +94,7 @@ export function MarketingView({ onEnter, onLogin }: { onEnter: (url: string) => 
           if (interval) clearInterval(interval);
           setTypingComplete(true);
         }
-      }, 45);
+      }, 40);
     };
 
     if (document.documentElement.classList.contains("is-ready")) {
@@ -69,13 +107,22 @@ export function MarketingView({ onEnter, onLogin }: { onEnter: (url: string) => 
         }
       });
       observer.observe(document.documentElement, { attributes: true, attributeFilter: ["class"] });
+
+      // Fallback timer: start typing within 400ms even if observer hasn't fired yet
+      fallbackTimeout = setTimeout(() => {
+        observer.disconnect();
+        startTyping();
+      }, 400);
+
       return () => {
         observer.disconnect();
+        if (fallbackTimeout) clearTimeout(fallbackTimeout);
         if (interval) clearInterval(interval);
       };
     }
 
     return () => {
+      if (fallbackTimeout) clearTimeout(fallbackTimeout);
       if (interval) clearInterval(interval);
     };
   }, []);
@@ -162,11 +209,27 @@ export function MarketingView({ onEnter, onLogin }: { onEnter: (url: string) => 
           <a href="#faq" onClick={closeMenu}>
             FAQ
           </a>
-          <button className="nav-login" onClick={onLogin}>
-            Log in
-          </button>
-          <a className="button primary nav-cta" href="#scan" onClick={closeMenu}>
-            Scan my app
+          {isLoggedIn ? (
+            <button
+              className="nav-avatar-btn"
+              onClick={onGoToApp}
+              title={`Signed in as ${user?.name || user?.email || "User"} — Go to Dashboard`}
+              aria-label="User Account"
+            >
+              <span className="nav-avatar-circle">{userInitials}</span>
+              <span className="nav-avatar-name">{user?.name || "Dashboard"}</span>
+            </button>
+          ) : (
+            <button className="nav-login" onClick={onLogin}>
+              Log in
+            </button>
+          )}
+          <a
+            className="button primary nav-cta"
+            href={isLoggedIn ? "#top" : "#scan"}
+            onClick={isLoggedIn ? onGoToApp : closeMenu}
+          >
+            {isLoggedIn ? "Open scanner" : "Scan my app"}
           </a>
         </nav>
       </header>
@@ -202,6 +265,10 @@ export function MarketingView({ onEnter, onLogin }: { onEnter: (url: string) => 
         <div>
           <strong>0</strong>
           <span>Changes made to your app</span>
+        </div>
+        <div>
+          <strong>{userCount != null ? userCount : "—"}</strong>
+          <span>Registered users</span>
         </div>
       </section>
 

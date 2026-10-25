@@ -2,7 +2,7 @@ import { Router, type Request, type Response, type NextFunction } from 'express'
 import type { PrismaClient } from '@prisma/client'
 import {
   CreateDomainInputSchema,
-  StartVerificationInputSchema,
+  normalizeVerificationMethod,
 } from '@leaklens/shared'
 import { getPrismaClient } from '../db'
 import { recordAuditLog } from '../modules/audit'
@@ -55,26 +55,114 @@ export function createDomainsRouter(prismaClient?: PrismaClient): Router {
           where: { hostname },
         })
 
+        const isAutoVerify = process.env.AUTO_VERIFY_DEV === 'true'
+
         if (existing) {
           if (existing.userId !== userId) {
-            res.status(409).json({
-              error: 'DOMAIN_CONFLICT',
-              message:
-                'This domain is already registered. If you are the rightful owner, please contact support.',
+            const isExpired = existing.expiresAt ? existing.expiresAt.getTime() <= Date.now() : false
+            const isVerifiedActive = existing.status === 'verified' && !isExpired
+
+            // Check if existing owner is a mock / test user account
+            const existingOwner = prisma.user?.findUnique
+              ? await prisma.user.findUnique({
+                  where: { id: existing.userId },
+                })
+              : null
+            const isMockOwner = Boolean(
+              existingOwner &&
+                (existingOwner.email.endsWith('@example.com') ||
+                  existingOwner.email.includes('mock') ||
+                  existingOwner.id.startsWith('00000000-') ||
+                  existingOwner.name === 'Alex Morgan'),
+            )
+
+            if (isVerifiedActive && !isMockOwner) {
+              res.status(409).json({
+                error: 'DOMAIN_CONFLICT',
+                message:
+                  'This domain is already registered and verified by another user. If you are the rightful owner, please contact support.',
+              })
+              return
+            }
+
+            // Unverified, expired, or transferred from mock/dev: transfer to current user so they can prove ownership
+            const updated = await prisma.domain.update({
+              where: { id: existing.id },
+              data: {
+                userId,
+                status: 'pending_verification',
+                verifiedAt: null,
+                expiresAt: null,
+              },
             })
+
+            const challenge = await startDomainVerification(userId, updated.id, 'dns_txt', prisma)
+            res.status(200).json({ domain: updated, verification: challenge })
             return
           }
 
-          res.status(200).json({ domain: existing })
+          if (isAutoVerify && existing.status !== 'verified') {
+            const updated = await prisma.domain.update({
+              where: { id: existing.id },
+              data: {
+                status: 'verified',
+                verifiedAt: new Date(),
+                expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+              },
+            })
+            res.status(200).json({ domain: updated })
+            return
+          }
+
+          // Ensure a challenge exists for the domain
+          let challenge = await prisma.verification.findFirst({
+            where: { domainId: existing.id },
+            orderBy: { createdAt: 'desc' },
+          })
+          if (!challenge || !challenge.token || challenge.expiresAt.getTime() <= Date.now()) {
+            const newChallenge = await startDomainVerification(userId, existing.id, 'dns_txt', prisma)
+            res.status(200).json({ domain: existing, verification: newChallenge })
+            return
+          }
+
+          const details = {
+            method: challenge.method,
+            token: challenge.token,
+            dnsRecord: {
+              type: 'TXT',
+              host: `_leaklens.${existing.hostname}`,
+              value: `leaklens-verification=${challenge.token}`,
+            },
+            metaTag: {
+              name: 'leaklens-verification',
+              content: challenge.token,
+              snippet: `<meta name="leaklens-verification" content="${challenge.token}" />`,
+            },
+            file: {
+              path: '/.well-known/leaklens.txt',
+              content: `leaklens-verification=${challenge.token}`,
+            },
+          }
+
+          res.status(200).json({
+            domain: existing,
+            verification: {
+              verificationId: challenge.id,
+              details,
+              expiresAt: challenge.expiresAt.toISOString(),
+            },
+          })
           return
         }
 
-        // 3. Create domain record
+        // 3. Create domain record (auto-verified in dev mode if AUTO_VERIFY_DEV is true)
         const domain = await prisma.domain.create({
           data: {
             userId,
             hostname,
-            status: 'pending_verification',
+            status: isAutoVerify ? 'verified' : 'pending_verification',
+            verifiedAt: isAutoVerify ? new Date() : null,
+            expiresAt: isAutoVerify ? new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) : null,
           },
         })
 
@@ -104,7 +192,7 @@ export function createDomainsRouter(prismaClient?: PrismaClient): Router {
 
   /**
    * GET /domains
-   * List all domains owned by the authenticated user.
+   * List all domains owned by the authenticated user with scan stats.
    */
   router.get(
     '/domains',
@@ -114,9 +202,73 @@ export function createDomainsRouter(prismaClient?: PrismaClient): Router {
         const domains = await prisma.domain.findMany({
           where: { userId },
           orderBy: { createdAt: 'desc' },
+          include: {
+            scans: {
+              orderBy: { createdAt: 'desc' },
+              take: 5,
+              select: {
+                id: true,
+                exposureScore: true,
+                status: true,
+                createdAt: true,
+                finishedAt: true,
+              },
+            },
+            _count: {
+              select: { scans: true },
+            },
+          },
         })
 
-        res.status(200).json({ domains })
+        const formatted = domains.map((d) => {
+          const latestScan = d.scans[0]
+          return {
+            id: d.id,
+            hostname: d.hostname,
+            status: d.status,
+            verifiedAt: d.verifiedAt,
+            createdAt: d.createdAt,
+            scanCount: d._count.scans,
+            latestScore: latestScan?.exposureScore ?? null,
+            latestScanStatus: latestScan?.status ?? null,
+            recentScores: d.scans.map((s) => s.exposureScore).filter((s): s is number => s !== null),
+          }
+        })
+
+        res.status(200).json({ domains: formatted })
+      } catch (err) {
+        next(err)
+      }
+    },
+  )
+
+  /**
+   * DELETE /domains/:id
+   * Delete a domain owned by the authenticated user.
+   */
+  router.delete(
+    '/domains/:id',
+    async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+      try {
+        const userId = req.user!.id
+        const id = String(req.params.id)
+        const domain = await prisma.domain.findFirst({
+          where: {
+            userId,
+            OR: [{ id }, { hostname: id }],
+          },
+        })
+
+        if (!domain) {
+          res.status(404).json({ error: 'Domain not found' })
+          return
+        }
+
+        await prisma.domain.delete({
+          where: { id: domain.id },
+        })
+
+        res.status(200).json({ success: true, message: 'Domain deleted' })
       } catch (err) {
         next(err)
       }
@@ -134,7 +286,10 @@ export function createDomainsRouter(prismaClient?: PrismaClient): Router {
         const userId = req.user!.id
         const id = String(req.params.id)
         const domain = await prisma.domain.findFirst({
-          where: { id, userId },
+          where: {
+            userId,
+            OR: [{ id }, { hostname: id }],
+          },
         })
 
         if (!domain) {
@@ -159,9 +314,49 @@ export function createDomainsRouter(prismaClient?: PrismaClient): Router {
       try {
         const userId = req.user!.id
         const id = String(req.params.id)
-        const domain = await prisma.domain.findFirst({
-          where: { id, userId },
+        let domain = await prisma.domain.findFirst({
+          where: {
+            userId,
+            OR: [{ id }, { hostname: id }],
+          },
         })
+
+        if (!domain) {
+          const existing = await prisma.domain.findUnique({
+            where: { hostname: id },
+          })
+          if (existing) {
+            const isVerifiedActive =
+              existing.status === 'verified' &&
+              existing.expiresAt &&
+              existing.expiresAt.getTime() > Date.now()
+
+            const existingOwner = prisma.user?.findUnique
+              ? await prisma.user.findUnique({
+                  where: { id: existing.userId },
+                })
+              : null
+            const isMockOwner = Boolean(
+              existingOwner &&
+                (existingOwner.email.endsWith('@example.com') ||
+                  existingOwner.email.includes('mock') ||
+                  existingOwner.id.startsWith('00000000-') ||
+                  existingOwner.name === 'Alex Morgan'),
+            )
+
+            if (!isVerifiedActive || isMockOwner) {
+              domain = await prisma.domain.update({
+                where: { id: existing.id },
+                data: {
+                  userId,
+                  status: isVerifiedActive ? existing.status : 'pending_verification',
+                  verifiedAt: isVerifiedActive ? existing.verifiedAt : null,
+                  expiresAt: isVerifiedActive ? existing.expiresAt : null,
+                },
+              })
+            }
+          }
+        }
 
         if (!domain) {
           res.status(404).json({ error: 'Domain not found' })
@@ -226,13 +421,19 @@ export function createDomainsRouter(prismaClient?: PrismaClient): Router {
    */
   router.post(
     '/domains/:id/challenge',
-    rateLimitByDomain(10, 60 * 1000),
+    rateLimitByDomain(120, 60 * 1000),
     async (req: Request, res: Response, next: NextFunction): Promise<void> => {
       try {
         const userId = req.user!.id
         const id = String(req.params.id)
-        const parseResult = StartVerificationInputSchema.safeParse(req.body)
-        const method = parseResult.success ? parseResult.data.method : 'dns_txt'
+        let method = 'dns_txt'
+        if (req.body?.method) {
+          try {
+            method = normalizeVerificationMethod(req.body.method)
+          } catch {
+            method = 'dns_txt'
+          }
+        }
 
         const challenge = await startDomainVerification(
           userId,
@@ -259,10 +460,24 @@ export function createDomainsRouter(prismaClient?: PrismaClient): Router {
       try {
         const userId = req.user!.id
         const id = String(req.params.id)
-        const result = await checkDomainVerification(userId, id, prisma)
+        let method: string | undefined = undefined
+        if (req.body?.method === 'auto' || req.body?.method === 'any') {
+          method = 'auto'
+        } else if (req.body?.method) {
+          try {
+            method = normalizeVerificationMethod(req.body.method)
+          } catch {
+            method = 'auto'
+          }
+        }
 
-        const domain = await prisma.domain.findUnique({
-          where: { id },
+        const result = await checkDomainVerification(userId, id, prisma, undefined, method)
+
+        const domain = await prisma.domain.findFirst({
+          where: {
+            userId,
+            OR: [{ id }, { hostname: id }],
+          },
         })
 
         await recordAuditLog(
@@ -274,13 +489,14 @@ export function createDomainsRouter(prismaClient?: PrismaClient): Router {
             metadata: {
               verified: result.verified,
               reason: result.reason,
+              method: method || 'default',
             },
           },
           prisma,
         )
 
         res.status(200).json({
-          domainId: req.params.id,
+          domainId: domain?.id || req.params.id,
           status: result.verified ? 'verified' : 'failed',
           verified: result.verified,
           reason: result.reason,

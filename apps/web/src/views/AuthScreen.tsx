@@ -4,6 +4,7 @@ import { BRAND } from "../constants/marketing";
 import { Companion } from "../components/common/Companion";
 import { MaterialIcon } from "../components/common/MaterialIcon";
 import { MicroLabel } from "../components/common/MicroLabel";
+import { supabase } from "../lib/supabase";
 
 export type AuthMode = "login" | "signup" | "forgot";
 
@@ -19,6 +20,7 @@ export function AuthScreen({
   onBack: () => void;
 }) {
   const [sent, setSent] = useState(false);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [botMessage, setBotMessage] = useState(
     "Welcome to LeakLens. Authenticate to manage your apps and scans."
@@ -37,11 +39,13 @@ export function AuthScreen({
     );
   }, [mode]);
 
-  const submit = (event: FormEvent) => {
+  const submit = async (event: FormEvent) => {
     event.preventDefault();
     const form = new FormData(event.currentTarget as HTMLFormElement);
-    const email = String(form.get("email") || "");
+    const name = String(form.get("name") || "").trim();
+    const email = String(form.get("email") || "").trim();
     const password = String(form.get("password") || "");
+
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       const err = "Enter a valid email address.";
       setError(err);
@@ -56,18 +60,56 @@ export function AuthScreen({
       companionEvents.emit("error_shown", { message: err, context: "auth_password" });
       return;
     }
-    if (mode === "login" && password.toLowerCase() === "wrong") {
-      const err = "Incorrect password. Please try again.";
-      setError(err);
-      setBotMessage("The password entered was not recognised.");
-      companionEvents.emit("error_shown", { message: err, context: "auth_login" });
-      return;
-    }
+
     setError("");
-    if (mode === "forgot") {
-      setSent(true);
-      setBotMessage("Password reset email dispatched successfully.");
-    } else onSuccess();
+    setLoading(true);
+
+    try {
+      if (mode === "signup") {
+        const { data, error: signUpError } = await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            data: {
+              full_name: name || undefined,
+            },
+          },
+        });
+        if (signUpError) throw signUpError;
+
+        if (!data.session) {
+          const { error: signInError } = await supabase.auth.signInWithPassword({
+            email,
+            password,
+          });
+          if (signInError) {
+            setSent(true);
+            setBotMessage("Account created. Please check your email to confirm your account.");
+            return;
+          }
+        }
+        onSuccess();
+      } else if (mode === "login") {
+        const { error: signInError } = await supabase.auth.signInWithPassword({
+          email,
+          password,
+        });
+        if (signInError) throw signInError;
+        onSuccess();
+      } else if (mode === "forgot") {
+        const { error: resetError } = await supabase.auth.resetPasswordForEmail(email);
+        if (resetError) throw resetError;
+        setSent(true);
+        setBotMessage("Password reset email dispatched successfully.");
+      }
+    } catch (err: any) {
+      const msg = err.message || "An authentication error occurred.";
+      setError(msg);
+      setBotMessage(msg);
+      companionEvents.emit("error_shown", { message: msg, context: "auth_supabase" });
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -105,7 +147,7 @@ export function AuthScreen({
             {mode === "signup" && (
               <label>
                 NAME
-                <input name="name" required minLength={2} placeholder="Alex Morgan" />
+                <input name="name" required minLength={2} placeholder="Your full name" />
               </label>
             )}
             <label>
@@ -131,8 +173,14 @@ export function AuthScreen({
                 {error}
               </p>
             )}
-            <button className="button primary" type="submit">
-              {mode === "login" ? "Log in" : mode === "signup" ? "Create account" : "Send reset link"}
+            <button className="button primary" type="submit" disabled={loading}>
+              {loading
+                ? "Connecting..."
+                : mode === "login"
+                  ? "Log in"
+                  : mode === "signup"
+                    ? "Create account"
+                    : "Send reset link"}
             </button>
           </form>
         )}

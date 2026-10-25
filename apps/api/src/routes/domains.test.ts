@@ -114,7 +114,7 @@ describe('domains router: platform root rejection and ownership', () => {
       hostname: 'example.com',
       status: 'verified',
       verifiedAt: new Date(),
-      expiresAt: new Date(),
+      expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
       createdAt: new Date(),
       updatedAt: new Date(),
     })
@@ -129,4 +129,98 @@ describe('domains router: platform root rejection and ownership', () => {
     expect(res.status).toBe(409)
     expect(res.body.error).toBe('DOMAIN_CONFLICT')
   })
+
+  it('generates real-time verification challenge for meta_tag and file methods', async () => {
+    const prisma = createMockPrisma()
+    vi.mocked(prisma.domain.findFirst).mockResolvedValue({
+      id: 'domain-1',
+      userId: 'user-1',
+      hostname: 'my-project.lovable.app',
+      status: 'pending_verification',
+      verifiedAt: null,
+      expiresAt: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    })
+    vi.mocked(prisma.domain.update).mockResolvedValue({
+      id: 'domain-1',
+      userId: 'user-1',
+      hostname: 'my-project.lovable.app',
+      status: 'pending_verification',
+      verifiedAt: null,
+      expiresAt: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    })
+    vi.mocked(prisma.verification.create).mockResolvedValue({
+      id: 'verif-2',
+      domainId: 'domain-1',
+      method: 'meta_tag',
+      token: 'll_testmeta456',
+      tokenHash: 'hash456',
+      tokenPreview: 'll_test••••456',
+      status: 'pending',
+      attempts: 0,
+      lastError: null,
+      verifiedAt: null,
+      expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    })
+
+    const app = createApp({ prisma })
+
+    const res = await request(app)
+      .post('/api/domains/domain-1/challenge')
+      .set('x-test-user-id', 'user-1')
+      .send({ method: 'meta_tag' })
+
+    expect(res.status).toBe(200)
+    expect(res.body.details.method).toBe('meta_tag')
+    expect(res.body.details.metaTag.snippet).toContain('<meta name="leaklens-verification"')
+  })
+
+  it('runs real verification check and returns detailed live failure reason when record is missing', async () => {
+    const prisma = createMockPrisma()
+    vi.mocked(prisma.domain.findFirst).mockResolvedValue({
+      id: 'domain-1',
+      userId: 'user-1',
+      hostname: 'my-project.lovable.app',
+      status: 'pending_verification',
+      verifiedAt: null,
+      expiresAt: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    })
+    vi.mocked(prisma.verification.findFirst).mockResolvedValue({
+      id: 'verif-1',
+      domainId: 'domain-1',
+      method: 'dns_txt',
+      token: 'll_token123',
+      tokenHash: 'hash123',
+      tokenPreview: 'll_tok••••',
+      status: 'pending',
+      attempts: 0,
+      lastError: null,
+      verifiedAt: null,
+      expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    })
+    vi.mocked(prisma.verification.update).mockResolvedValue({} as any)
+    vi.mocked(prisma.domain.update).mockResolvedValue({} as any)
+
+    const app = createApp({ prisma })
+
+    const res = await request(app)
+      .post('/api/domains/domain-1/verify')
+      .set('x-test-user-id', 'user-1')
+      .send({ method: 'dns_txt' })
+
+    expect(res.status).toBe(200)
+    expect(res.body.status).toBe('failed')
+    expect(res.body.verified).toBe(false)
+    expect(res.body.reason).toBeDefined()
+  })
 })
+

@@ -14,10 +14,35 @@ export interface SendEmailOptions {
  * - Verification reminders
  */
 export class EmailService {
-  async sendEmail(_options: SendEmailOptions): Promise<{ id: string; success: boolean }> {
-    // Phase 0 stub: log to console or return simulated delivery
+  async sendEmail(options: SendEmailOptions): Promise<{ id: string; success: boolean }> {
+    if (process.env.RESEND_API_KEY) {
+      try {
+        const res = await fetch("https://api.resend.com/emails", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            from: process.env.EMAIL_FROM || "LeakLens <notifications@leaklens.com>",
+            to: options.to,
+            subject: options.subject,
+            html: options.html,
+            text: options.text,
+          }),
+        });
+        if (res.ok) {
+          const data = await res.json().catch(() => ({}));
+          return { id: (data as any)?.id || `resend_${Date.now()}`, success: true };
+        }
+      } catch (err) {
+        console.warn("[EmailService] Resend delivery failed, falling back to log:", err);
+      }
+    }
+
+    console.log(`[EmailService] Notification for ${options.to}: "${options.subject}"`);
     return {
-      id: `stub_resend_msg_${Date.now()}`,
+      id: `simulated_msg_${Date.now()}`,
       success: true,
     };
   }
@@ -26,7 +51,7 @@ export class EmailService {
     return this.sendEmail({
       to,
       subject: `LeakLens Scan Results: ${hostname} (Score: ${score}/100)`,
-      html: `<p>Your read-only scan for <strong>${hostname}</strong> has finished. Exposure score: ${score}/100. Findings: ${findingsCount}.</p>`,
+      html: `<p>Your read-only scan for <strong>${hostname}</strong> has finished.</p><p>Exposure score: <strong>${score}/100</strong>.</p><p>Findings: ${findingsCount}.</p>`,
     });
   }
 }

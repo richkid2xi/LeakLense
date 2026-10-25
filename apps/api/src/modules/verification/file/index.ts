@@ -20,34 +20,30 @@ export async function verifyFileOwnership(
   customFetcher?: SafeTextFetcher,
 ): Promise<VerificationCheckResult> {
   const checkedAt = new Date().toISOString()
-  const targetUrl = `https://${hostname}${WELL_KNOWN_PATH}`
   const fetcher = customFetcher ?? safeFetchText
 
+  let response
+  let lastError: unknown
+
   try {
-    const response = await fetcher(targetUrl, hostname, {
+    response = await fetcher(`https://${hostname}${WELL_KNOWN_PATH}`, hostname, {
       ...DEFAULT_SCAN_LIMITS,
       maxResponseBytes: MAX_FILE_BYTES,
     })
-
-    if (response.status !== 200) {
-      return {
-        verified: false,
-        checkedAt,
-        reason: `File at ${WELL_KNOWN_PATH} returned HTTP status ${response.status}. Expected 200 OK.`,
-      }
+  } catch (httpsErr) {
+    lastError = httpsErr
+    try {
+      response = await fetcher(`http://${hostname}${WELL_KNOWN_PATH}`, hostname, {
+        ...DEFAULT_SCAN_LIMITS,
+        maxResponseBytes: MAX_FILE_BYTES,
+      })
+    } catch {
+      // keep lastError from https
     }
+  }
 
-    const verified = matchesVerificationValue(response.body.trim(), expectedHash)
-
-    return {
-      verified,
-      checkedAt,
-      reason: verified
-        ? undefined
-        : `File at ${WELL_KNOWN_PATH} did not contain the expected verification token.`,
-    }
-  } catch (err: unknown) {
-    const check = isTruncatedOrTimeout(err)
+  if (!response) {
+    const check = isTruncatedOrTimeout(lastError)
     if (check.isTruncated) {
       return {
         verified: false,
@@ -56,11 +52,29 @@ export async function verifyFileOwnership(
       }
     }
 
-    const message = err instanceof Error ? err.message : String(err)
+    const message = lastError instanceof Error ? lastError.message : String(lastError)
     return {
       verified: false,
       checkedAt,
       reason: `Failed to fetch verification file at ${WELL_KNOWN_PATH}: ${message}`,
     }
+  }
+
+  if (response.status !== 200) {
+    return {
+      verified: false,
+      checkedAt,
+      reason: `File at ${WELL_KNOWN_PATH} returned HTTP status ${response.status}. Expected 200 OK.`,
+    }
+  }
+
+  const verified = matchesVerificationValue(response.body.trim(), expectedHash)
+
+  return {
+    verified,
+    checkedAt,
+    reason: verified
+      ? undefined
+      : `File at ${WELL_KNOWN_PATH} did not contain the expected verification token.`,
   }
 }

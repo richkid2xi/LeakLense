@@ -151,9 +151,9 @@ export const initialMockChecksRun: UiCheckRun[] = [
 ];
 
 export const initialMockScans: UiScanSummary[] = [
-  { id: "LL-2025-031", date: "Today, 10:42", score: "62", trend: [40, 48, 55, 62], status: "complete" },
-  { id: "LL-2025-024", date: "Mar 18, 16:08", score: "41", trend: [32, 38, 41], status: "complete" },
-  { id: "LL-2025-018", date: "Mar 12, 09:21", score: "—", trend: [0], status: "failed" },
+  { id: "LL-2025-031", hostname: "acme-notes.app", date: "Today, 10:42", score: "62", scoreNumber: 62, trend: [40, 48, 55, 62], status: "complete" },
+  { id: "LL-2025-024", hostname: "acme-notes.app", date: "Mar 18, 16:08", score: "41", scoreNumber: 41, trend: [32, 38, 41], status: "complete" },
+  { id: "LL-2025-018", hostname: "acme-notes.app", date: "Mar 12, 09:21", score: "—", scoreNumber: 0, trend: [0], status: "failed" },
 ];
 
 // In-memory mock state store
@@ -187,6 +187,7 @@ export const mockAdapter = {
       id: newId,
       date: "Just now",
       score: "62",
+      scoreNumber: 62,
       trend: [50, 58, 62],
       status: "complete",
     };
@@ -220,7 +221,21 @@ export const mockAdapter = {
     };
   },
 
-  async checkVerification(domainOrUrl: string): Promise<VerificationResult> {
+  async getDomains(): Promise<import("./types").UiDomain[]> {
+    return [
+      {
+        id: "d1",
+        hostname: "acme-notes.app",
+        status: "verified",
+        verifiedAt: new Date().toISOString(),
+      },
+    ];
+  },
+
+  async checkVerification(
+    domainOrUrl: string,
+    _method: "dns" | "meta" | "file" | "auto" = "auto"
+  ): Promise<VerificationResult> {
     return {
       verified: true,
       status: "Verified",
@@ -258,6 +273,10 @@ export const mockAdapter = {
       newCount: 2,
       newSummary: "A source map and verbose API error appeared in the latest deployment.",
     };
+  },
+
+  async deleteDomain(_id: string): Promise<boolean> {
+    return true;
   },
 
   resetStore() {

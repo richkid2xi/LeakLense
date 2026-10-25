@@ -4,6 +4,7 @@ import {
   UiFinding,
   UiScanSummary,
   UiScanDetail,
+  UiDomain,
   VerificationChallenge,
   VerificationResult,
   RescanComparison,
@@ -15,9 +16,17 @@ export * from "./types";
 export { initialMockFindings, initialMockChecksRun, initialMockScans };
 
 // Flag controlling mock mode vs real API mode
-export const USE_MOCK = import.meta.env.VITE_USE_MOCK !== "false";
+export const USE_MOCK = import.meta.env.VITE_USE_MOCK === "true";
 
 const adapter = USE_MOCK ? mockAdapter : httpAdapter;
+
+export async function getDomains(): Promise<UiDomain[]> {
+  return adapter.getDomains();
+}
+
+export async function deleteDomain(id: string): Promise<boolean> {
+  return (adapter as any).deleteDomain ? (adapter as any).deleteDomain(id) : httpAdapter.deleteDomain(id);
+}
 
 export async function getScans(): Promise<UiScanSummary[]> {
   return adapter.getScans();
@@ -38,8 +47,11 @@ export async function startVerification(
   return adapter.startVerification(domainOrUrl, method);
 }
 
-export async function checkVerification(domainOrUrl: string): Promise<VerificationResult> {
-  return adapter.checkVerification(domainOrUrl);
+export async function checkVerification(
+  domainOrUrl: string,
+  method: "dns" | "meta" | "file" | "auto" = "auto"
+): Promise<VerificationResult> {
+  return adapter.checkVerification(domainOrUrl, method);
 }
 
 export async function getFindingDetail(id: string | number, _builder?: string): Promise<UiFinding | undefined> {
@@ -54,6 +66,10 @@ export async function rescan(domainOrUrl: string): Promise<UiScanDetail> {
   return adapter.rescan(domainOrUrl);
 }
 
-export async function getRescanComparison(): Promise<RescanComparison> {
-  return adapter.getRescanComparison();
+export async function getRescanComparison(scanId?: string): Promise<RescanComparison> {
+  return adapter.getRescanComparison(scanId);
+}
+
+export async function getPublicStats(): Promise<{ userCount: number; scanCount: number }> {
+  return httpAdapter.getPublicStats();
 }

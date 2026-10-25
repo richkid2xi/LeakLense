@@ -23,8 +23,10 @@ export interface UiCheckRun {
 
 export interface UiScanSummary {
   id: string;
+  hostname?: string;
   date: string;
   score: string;
+  scoreNumber: number;
   trend: number[];
   status: "complete" | "failed" | "running";
 }
@@ -38,6 +40,17 @@ export interface UiScanDetail {
   detectedStack: string[];
   findings: UiFinding[];
   checksRun: UiCheckRun[];
+}
+
+export interface UiDomain {
+  id: string;
+  hostname: string;
+  status: string;
+  verifiedAt?: string | null;
+  scanCount?: number;
+  latestScore?: number | null;
+  latestScanStatus?: string | null;
+  recentScores?: number[];
 }
 
 export interface VerificationChallenge {
@@ -65,6 +78,12 @@ export interface RescanComparison {
   resolvedSummary: string;
   newCount: number;
   newSummary: string;
+  headline?: string;
+}
+
+export interface PublicStats {
+  userCount: number;
+  scanCount: number;
 }
 
 export interface CreateScanOptions {

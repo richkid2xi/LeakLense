@@ -11,6 +11,8 @@ function createMockPrisma() {
   return {
     domain: {
       findFirst: vi.fn(),
+      findUnique: vi.fn(),
+      create: vi.fn(),
       update: vi.fn(),
     },
     verification: {

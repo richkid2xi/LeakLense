@@ -15,11 +15,12 @@ export function extractMetaVerificationContent(html: string): string | null {
   if (!html) return null
   const tags = html.match(/<meta\b[^>]*>/gi) ?? []
   for (const tag of tags) {
-    const isLeakLens = /name\s*=\s*["']leaklens-verification["']/i.test(tag)
+    const isLeakLens = /name\s*=\s*["']?leaklens-verification["']?/i.test(tag)
     if (isLeakLens) {
-      const match = tag.match(/content\s*=\s*["']([^"']+)["']/i)
-      if (match && match[1]) {
-        return match[1].trim()
+      const match = tag.match(/content\s*=\s*(?:["']([^"']+)["']|([^\s>]+))/i)
+      const val = match?.[1] || match?.[2]
+      if (val) {
+        return val.trim()
       }
     }
   }
@@ -37,48 +38,62 @@ export async function verifyMetaOwnership(
   customFetcher?: SafeTextFetcher,
 ): Promise<VerificationCheckResult> {
   const checkedAt = new Date().toISOString()
-  const targetUrl = `https://${hostname}/`
   const fetcher = customFetcher ?? safeFetchText
 
+  let response
+  let lastError: unknown
+
   try {
-    const response = await fetcher(targetUrl, hostname, {
+    response = await fetcher(`https://${hostname}/`, hostname, {
       ...DEFAULT_SCAN_LIMITS,
       maxResponseBytes: MAX_META_BYTES,
     })
-
-    if (response.status < 200 || response.status >= 400) {
-      return {
-        verified: false,
-        checkedAt,
-        reason: `Home page at ${targetUrl} returned HTTP status ${response.status}.`,
-      }
+  } catch (httpsErr) {
+    lastError = httpsErr
+    try {
+      response = await fetcher(`http://${hostname}/`, hostname, {
+        ...DEFAULT_SCAN_LIMITS,
+        maxResponseBytes: MAX_META_BYTES,
+      })
+    } catch {
+      // keep lastError from https
     }
+  }
 
-    const content = extractMetaVerificationContent(response.body)
-    if (!content) {
-      return {
-        verified: false,
-        checkedAt,
-        reason:
-          'The verification meta tag `<meta name="leaklens-verification" content="..." />` was not found in the HTML.',
-      }
-    }
-
-    const verified = matchesVerificationValue(content, expectedHash)
-
-    return {
-      verified,
-      checkedAt,
-      reason: verified
-        ? undefined
-        : 'The verification meta tag was found, but the token value did not match.',
-    }
-  } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : String(err)
+  if (!response) {
+    const message = lastError instanceof Error ? lastError.message : String(lastError)
     return {
       verified: false,
       checkedAt,
-      reason: `Failed to fetch home page HTML at ${targetUrl}: ${message}`,
+      reason: `Failed to fetch home page HTML at ${hostname}: ${message}`,
     }
+  }
+
+  if (response.status < 200 || response.status >= 400) {
+    return {
+      verified: false,
+      checkedAt,
+      reason: `Home page at ${hostname} returned HTTP status ${response.status}.`,
+    }
+  }
+
+  const content = extractMetaVerificationContent(response.body)
+  if (!content) {
+    return {
+      verified: false,
+      checkedAt,
+      reason:
+        'The verification meta tag `<meta name="leaklens-verification" content="..." />` was not found in the HTML.',
+    }
+  }
+
+  const verified = matchesVerificationValue(content, expectedHash)
+
+  return {
+    verified,
+    checkedAt,
+    reason: verified
+      ? undefined
+      : 'The verification meta tag was found, but the token value did not match.',
   }
 }

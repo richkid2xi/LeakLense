@@ -56,3 +56,47 @@ export async function verifyOwnership(input: VerificationInput): Promise<Verific
     }
   }
 }
+
+/**
+ * Checks all supported verification methods in order (DNS TXT, HTML meta tag, and file).
+ * If any method succeeds, the domain is confirmed verified.
+ */
+export async function verifyOwnershipAny(
+  hostname: string,
+  expectedHash: string,
+): Promise<VerificationCheckResult> {
+  const checkedAt = new Date().toISOString()
+  const validation = validateHostnameForVerification(hostname)
+  if (!validation.valid) {
+    return {
+      verified: false,
+      checkedAt,
+      reason: validation.reason,
+    }
+  }
+
+  const validHost = validation.hostname
+
+  // Run DNS, Meta Tag, and Verification File checks concurrently
+  const [dnsRes, metaRes, fileRes] = await Promise.allSettled([
+    verifyDnsOwnership(validHost, expectedHash),
+    verifyMetaOwnership(validHost, expectedHash),
+    verifyFileOwnership(validHost, expectedHash),
+  ])
+
+  if (dnsRes.status === 'fulfilled' && dnsRes.value?.verified) {
+    return dnsRes.value
+  }
+  if (metaRes.status === 'fulfilled' && metaRes.value?.verified) {
+    return metaRes.value
+  }
+  if (fileRes.status === 'fulfilled' && fileRes.value?.verified) {
+    return fileRes.value
+  }
+
+  return {
+    verified: false,
+    checkedAt,
+    reason: 'No verification record found via DNS TXT, HTML meta tag, or /.well-known/leaklens.txt',
+  }
+}

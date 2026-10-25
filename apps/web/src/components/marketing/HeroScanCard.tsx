@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from "react";
-import { MaterialIcon } from "../common/MaterialIcon";
+import { Arrow, MaterialIcon } from "../common/MaterialIcon";
 import { HERO_SCAN_CONTENT, type SampleCheckItem } from "./heroScanContent";
 import { companionEvents } from "../../lib/companion/events";
 
@@ -426,9 +426,41 @@ export function HeroScanCard() {
 
       {/* Footer Line */}
       <div className="hero-scan-footer">
-        <span className="hero-scan-footer-summary">
-          {HERO_SCAN_CONTENT.summaryTemplate(resolvedCount, issuesFoundCount)}
-        </span>
+        <div className="hero-scan-footer-left">
+          <span className="hero-scan-footer-summary">
+            {HERO_SCAN_CONTENT.summaryTemplate(resolvedCount, issuesFoundCount)}
+          </span>
+        </div>
+        <div className="hero-scan-footer-right">
+          {isFinished ? (
+            <div className="hero-scan-footer-actions">
+              <span className="hero-scan-trust-badge">
+                <span className="hero-scan-trust-dot" aria-hidden="true" />
+                Read-only scan
+              </span>
+              <a
+                href="#top"
+                className="hero-scan-cta-link"
+                onClick={(e) => {
+                  e.preventDefault();
+                  const input = document.querySelector<HTMLInputElement>(".url-form input");
+                  if (input) {
+                    input.scrollIntoView({ behavior: "smooth", block: "center" });
+                    input.focus();
+                  }
+                }}
+              >
+                <span>Scan your website</span>
+                <Arrow />
+              </a>
+            </div>
+          ) : (
+            <div className="hero-scan-footer-live">
+              <span className="hero-scan-live-dot" aria-hidden="true" />
+              <span>Analyzing client bundle...</span>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

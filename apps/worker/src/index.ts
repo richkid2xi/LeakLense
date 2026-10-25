@@ -3,6 +3,9 @@ dotenv.config();
 
 import { createWorkerQueue, registerScanWorker } from "./queue";
 
+export * from "./queue";
+export * from "./pipeline/engine";
+
 async function main() {
   console.log("LeakLens Worker initializing...");
 
