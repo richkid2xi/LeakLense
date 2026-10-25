@@ -1,8 +1,9 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import * as api from "../lib/api";
 import type { FindingStatus, UiFinding as Finding, UiScanSummary, UiDomain } from "../lib/api";
 import { companionEvents, SeverityLevel } from "../lib/companion/events";
 import { BRAND, checks } from "../constants/marketing";
+import { getDirectoryLabel, getHistoryBreadcrumb } from "../constants/routes";
 import { getScoreBand, SCORE_CAPTION } from "@leaklens/shared";
 import { Arrow, MaterialIcon } from "../components/common/MaterialIcon";
 import { MicroLabel } from "../components/common/MicroLabel";
@@ -172,6 +173,64 @@ export function LoggedInApp({
   const [mobileMenuOpen, setMobileMenuOpen] = useState<boolean>(false);
   const [emailNotifications, setEmailNotifications] = useState<boolean>(true);
 
+  const mainScrollRef = useRef<HTMLDivElement>(null);
+  const drawerRef = useRef<HTMLElement>(null);
+  const closeBtnRef = useRef<HTMLButtonElement>(null);
+  const hamburgerBtnRef = useRef<HTMLButtonElement>(null);
+  const [copiedScanId, setCopiedScanId] = useState(false);
+
+  const handleCopyScanId = async (id: string) => {
+    try {
+      await navigator.clipboard.writeText(id);
+      setCopiedScanId(true);
+      setTimeout(() => setCopiedScanId(false), 2000);
+    } catch {}
+  };
+
+  // Reset scroll position to top on route changes
+  useEffect(() => {
+    if (mainScrollRef.current) {
+      mainScrollRef.current.scrollTo(0, 0);
+    }
+  }, [screen]);
+
+  // Drawer accessibility: focus trap, esc listener, return focus, scroll lock
+  useEffect(() => {
+    if (!mobileMenuOpen) return;
+
+    closeBtnRef.current?.focus();
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setMobileMenuOpen(false);
+        hamburgerBtnRef.current?.focus();
+      }
+      if (e.key === "Tab" && drawerRef.current) {
+        const focusables = drawerRef.current.querySelectorAll<HTMLElement>(
+          'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+        );
+        if (focusables.length === 0) return;
+        const first = focusables[0];
+        const last = focusables[focusables.length - 1];
+        if (!first || !last) return;
+        if (e.shiftKey && document.activeElement === first) {
+          e.preventDefault();
+          last.focus();
+        } else if (!e.shiftKey && document.activeElement === last) {
+          e.preventDefault();
+          first.focus();
+        }
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.body.style.overflow = prevOverflow;
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [mobileMenuOpen]);
+
   // Toast Notification State
   interface ToastItem {
     id: string;
@@ -200,6 +259,12 @@ export function LoggedInApp({
     onConfirm: () => Promise<void> | void;
     isLoading?: boolean;
   } | null>(null);
+
+  const isOverlayOpen =
+    mobileMenuOpen ||
+    Boolean(selected) ||
+    Boolean(confirmModal?.isOpen) ||
+    Boolean(legalDocument);
 
   const handleSaveProfile = async () => {
     if (!profileName.trim()) {
@@ -834,38 +899,47 @@ export function LoggedInApp({
           aria-hidden="true"
         />
       )}
-      <aside className={`app-sidebar ${mobileMenuOpen ? "mobile-open" : ""}`} aria-label="Main navigation">
+      <aside
+        ref={drawerRef}
+        className={`app-sidebar ${mobileMenuOpen ? "mobile-open" : ""}`}
+        aria-label="Main navigation"
+        aria-hidden={!mobileMenuOpen ? true : undefined}
+      >
         <div className="sidebar-header-row">
           <button className="app-logo" onClick={() => { nav("history"); setMobileMenuOpen(false); }}>
             {BRAND}
             <sup>®</sup>
           </button>
           <button
+            ref={closeBtnRef}
             className="mobile-close-btn"
-            onClick={() => setMobileMenuOpen(false)}
+            onClick={() => {
+              setMobileMenuOpen(false);
+              hamburgerBtnRef.current?.focus();
+            }}
             aria-label="Close navigation"
           >
             <MaterialIcon>close</MaterialIcon>
           </button>
         </div>
         <button className="sidebar-new" onClick={() => { nav("new"); setMobileMenuOpen(false); }}>
-          <MaterialIcon>add</MaterialIcon> New scan
+          <MaterialIcon>add</MaterialIcon> <span>New scan</span>
         </button>
         <nav>
           <button
             className={["history", "results", "compare", "failed"].includes(screen) ? "active" : ""}
             onClick={() => { nav("history"); setMobileMenuOpen(false); }}
           >
-            <MaterialIcon>radar</MaterialIcon>Scans
+            <MaterialIcon>radar</MaterialIcon><span>Scans</span>
           </button>
           <button onClick={() => { nav("apps"); setMobileMenuOpen(false); }} className={screen === "apps" ? "active" : ""}>
-            <MaterialIcon>apps</MaterialIcon>Apps
+            <MaterialIcon>apps</MaterialIcon><span>Apps</span>
           </button>
           <button onClick={() => { nav("settings"); setMobileMenuOpen(false); }} className={screen === "settings" ? "active" : ""}>
-            <MaterialIcon>settings</MaterialIcon>Settings
+            <MaterialIcon>settings</MaterialIcon><span>Settings</span>
           </button>
         </nav>
-        <div className="mobile-drawer-account">
+        <div className="sidebar-profile-block mobile-drawer-account">
           <div className="mobile-drawer-user">
             <span className="user-avatar">{userInitials}</span>
             <div className="user-info">
@@ -883,7 +957,7 @@ export function LoggedInApp({
                   onViewHome();
                 }}
               >
-                <MaterialIcon>home</MaterialIcon> Landing page
+                <MaterialIcon>home</MaterialIcon> <span>Landing page</span>
               </button>
             )}
             <button
@@ -894,7 +968,7 @@ export function LoggedInApp({
                 nav("settings");
               }}
             >
-              <MaterialIcon>person</MaterialIcon> Account settings
+              <MaterialIcon>settings</MaterialIcon> <span>Account settings</span>
             </button>
             <button
               type="button"
@@ -904,7 +978,7 @@ export function LoggedInApp({
                 onLogout();
               }}
             >
-              <MaterialIcon>logout</MaterialIcon> Log out
+              <MaterialIcon>logout</MaterialIcon> <span>Log out</span>
             </button>
           </div>
         </div>
@@ -913,6 +987,7 @@ export function LoggedInApp({
         <header className="app-topbar">
           <div className="topbar-left">
             <button
+              ref={hamburgerBtnRef}
               className="mobile-hamburger-btn"
               onClick={() => setMobileMenuOpen(true)}
               aria-label="Open menu"
@@ -924,18 +999,11 @@ export function LoggedInApp({
               <span className="crumb-brand">LeakLens</span>
               <span className="crumb-divider">/</span>
               <span className="crumb-screen">
-                {screen === "new" ? "New Scan" :
-                 screen === "verify" ? "Verification" :
-                 screen === "progress" ? "Scanning" :
-                 screen === "results" ? "Report" :
-                 screen === "history" ? "Scans" :
-                 screen === "apps" ? "Applications" :
-                 screen === "compare" ? "Compare" :
-                 screen === "settings" ? "Settings" : "Overview"}
+                {getDirectoryLabel(screen, appFilter)}
               </span>
             </div>
           </div>
-          <div className="account-wrap">
+          <div className="account-wrap desktop-only-account">
             <button className="account-button" onClick={() => setAccountOpen(!accountOpen)}>
               <span>{userInitials}</span>{userName} <MaterialIcon>expand_more</MaterialIcon>
             </button>
@@ -948,7 +1016,8 @@ export function LoggedInApp({
             )}
           </div>
         </header>
-        <div className="app-content">
+        <main className="app-scroll-container" ref={mainScrollRef}>
+          <div className="app-content">
           <div className="screen-transition" key={screen}>
             {screen === "new" && (
               <section className="app-screen">
@@ -1232,21 +1301,42 @@ export function LoggedInApp({
                   </div>
                 </div>
                 <div className="scan-meta">
-                  <span>
-                    SCAN ID <b>{activeScanId ? activeScanId.slice(0, 18) : "LL-LIVE"}</b>
-                  </span>
-                  <span>
-                    APP <b>{url || appDisplay}</b>
-                  </span>
-                  <span>
-                    BUILDER <b>{builder}</b>
-                  </span>
-                  <span>
-                    STATUS <b>{scans.find((s) => s.id === activeScanId)?.status === "complete" ? "COMPLETE" : "JUST NOW"}</b>
-                  </span>
-                  <button onClick={() => {
-                    nav("compare");
-                  }}>
+                  <div className="scan-meta-grid">
+                    <div className="scan-meta-item">
+                      <span className="scan-meta-label">SCAN ID</span>
+                      <span className="scan-meta-value scan-meta-id">
+                        <code>{activeScanId ? `${activeScanId.slice(0, 10)}…` : "LL-LIVE"}</code>
+                        <button
+                          type="button"
+                          className="copy-scan-id-btn"
+                          onClick={() => handleCopyScanId(activeScanId || "LL-LIVE")}
+                          title="Copy Scan ID"
+                          aria-label="Copy Scan ID"
+                        >
+                          <MaterialIcon>{copiedScanId ? "check" : "content_copy"}</MaterialIcon>
+                        </button>
+                      </span>
+                    </div>
+                    <div className="scan-meta-item">
+                      <span className="scan-meta-label">APP</span>
+                      <span className="scan-meta-value">{url || appDisplay}</span>
+                    </div>
+                    <div className="scan-meta-item">
+                      <span className="scan-meta-label">BUILDER</span>
+                      <span className="scan-meta-value">{builder}</span>
+                    </div>
+                    <div className="scan-meta-item">
+                      <span className="scan-meta-label">STATUS</span>
+                      <span className="scan-meta-value">
+                        {scans.find((s) => s.id === activeScanId)?.status === "complete" ? "COMPLETE" : "JUST NOW"}
+                      </span>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    className="compare-rescan-btn"
+                    onClick={() => nav("compare")}
+                  >
                     COMPARE RESCAN <MaterialIcon>arrow_forward</MaterialIcon>
                   </button>
                 </div>
@@ -1261,15 +1351,15 @@ export function LoggedInApp({
                 <div className="checks-run">
                   <div className="checks-run-head">
                     <MicroLabel>CHECKS RUN</MicroLabel>
-                    <a href="/#coverage">View coverage</a>
+                    <a href="/#coverage" className="view-coverage-link">View coverage</a>
                   </div>
                   {checksRun.map(([name, status, reason]) => (
-                    <div key={name}>
-                      <span>
-                        {name}
-                        {reason && <small>{reason}</small>}
-                      </span>
-                      <b className={`check-status ${status.toLowerCase().replaceAll(" ", "-").replace("'", "")}`}>
+                    <div className="check-run-row" key={name}>
+                      <div className="check-run-info">
+                        <span className="check-name">{name}</span>
+                        {reason && <small className="check-reason">{reason}</small>}
+                      </div>
+                      <b className={`check-status status-pill ${status.toLowerCase().replaceAll(" ", "-").replace("'", "")}`}>
                         {status}
                       </b>
                     </div>
@@ -1277,24 +1367,33 @@ export function LoggedInApp({
                 </div>
                 {findings.length > 0 && (
                   <div className="table-toolbar">
-                    <div>
-                      <button
-                        className={severityFilter === "All" ? "active" : ""}
-                        onClick={() => setSeverityFilter("All")}
-                      >
-                        All severities
-                      </button>
-                      {["Critical", "High", "Medium", "Low"].map((x) => (
+                    <div className="severity-chips-scroll-wrap">
+                      <div className="severity-chips-row">
                         <button
-                          className={severityFilter === x ? "active" : ""}
-                          onClick={() => setSeverityFilter(x)}
-                          key={x}
+                          type="button"
+                          className={severityFilter === "All" ? "active" : ""}
+                          onClick={() => setSeverityFilter("All")}
                         >
-                          {x}
+                          All severities ({findings.length})
                         </button>
-                      ))}
+                        {["Critical", "High", "Medium", "Low"].map((x) => (
+                          <button
+                            type="button"
+                            className={severityFilter === x ? "active" : ""}
+                            onClick={() => setSeverityFilter(x)}
+                            key={x}
+                          >
+                            {x} ({findings.filter((f) => f.severity === x).length})
+                          </button>
+                        ))}
+                      </div>
                     </div>
-                    <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
+                    <select
+                      value={statusFilter}
+                      onChange={(e) => setStatusFilter(e.target.value)}
+                      aria-label="Filter findings by status"
+                      className="status-filter-select"
+                    >
                       <option>All</option>
                       <option>Open</option>
                       <option>Fixed</option>
@@ -1320,16 +1419,26 @@ export function LoggedInApp({
                       <span>Status</span>
                     </div>
                     {filtered.map((f) => (
-                      <button className="table-row" onClick={() => handleSelectFinding(f)} key={f.id}>
-                        <span>
-                          <i className={`severity-dot ${severityClass(f.severity)}`} />
-                          {f.severity}
-                        </span>
-                        <strong>{f.title}</strong>
-                        <code>{f.where}</code>
-                        <span>
-                          {f.status} <MaterialIcon>chevron_right</MaterialIcon>
-                        </span>
+                      <button
+                        type="button"
+                        className="table-row finding-card"
+                        onClick={() => handleSelectFinding(f)}
+                        key={f.id}
+                      >
+                        <div className="finding-card-top">
+                          <span className="finding-severity">
+                            <i className={`severity-dot ${severityClass(f.severity)}`} />
+                            {f.severity}
+                          </span>
+                          <span className="finding-status-badge">{f.status}</span>
+                        </div>
+                        <strong className="finding-card-title">{f.title}</strong>
+                        <div className="finding-card-bottom">
+                          <code className="finding-card-where">{f.where}</code>
+                          <span className="finding-card-chevron">
+                            <MaterialIcon>chevron_right</MaterialIcon>
+                          </span>
+                        </div>
                       </button>
                     ))}
                   </div>
@@ -1517,65 +1626,69 @@ export function LoggedInApp({
 
             {screen === "history" && (
               <section className="app-screen">
-                <div className="app-page-title row-title">
+                <div className="app-page-title row-title history-page-header">
                   <div>
-                    <MicroLabel>APPS / {(appFilter !== "all" ? appFilter : appDisplay || "ALL APPS").toUpperCase()}</MicroLabel>
+                    <MicroLabel>{getHistoryBreadcrumb(appFilter)}</MicroLabel>
                     <h1>Scan history.</h1>
                   </div>
-                  <button className="button primary" onClick={() => nav("new")}>
+                  <button className="button primary new-scan-btn-compact" onClick={() => nav("new")}>
                     New scan <Arrow />
                   </button>
                 </div>
 
-                <div className="table-toolbar scans-filter-toolbar" style={{ display: "flex", gap: "12px", alignItems: "flex-end", flexWrap: "wrap", marginBottom: "20px" }}>
-                  <CustomDropdown
-                    label="App"
-                    value={appFilter}
-                    options={[
-                      { value: "all", label: "All apps" },
-                      ...domains
-                        .filter((d) => d.status === "verified" || Boolean(d.verifiedAt))
-                        .map((d) => ({
-                          value: d.hostname,
-                          label: d.hostname,
-                        })),
-                    ]}
-                    onChange={(val) => updateFilter("app", val)}
-                    ariaLabel="Filter by app"
-                  />
-                  <CustomDropdown
-                    label="Result"
-                    value={resultFilter}
-                    options={[
-                      { value: "all", label: "All" },
-                      { value: "issues", label: "Issues found" },
-                      { value: "no_issues", label: "No issues found" },
-                      { value: "could_not_complete", label: "Could not complete" },
-                    ]}
-                    onChange={(val) => updateFilter("result", val)}
-                    ariaLabel="Filter by result"
-                  />
-                  <CustomDropdown
-                    label="Date"
-                    value={dateFilter}
-                    options={[
-                      { value: "all", label: "All time" },
-                      { value: "today", label: "Today" },
-                      { value: "7d", label: "Last 7 days" },
-                      { value: "30d", label: "Last 30 days" },
-                    ]}
-                    onChange={(val) => updateFilter("date", val)}
-                    ariaLabel="Filter by date"
-                  />
+                <div className="table-toolbar scans-filter-toolbar">
+                  <div className="scans-filter-grid">
+                    <div className="scans-filter-app">
+                      <CustomDropdown
+                        label="App"
+                        value={appFilter}
+                        options={[
+                          { value: "all", label: "All apps" },
+                          ...domains
+                            .filter((d) => d.status === "verified" || Boolean(d.verifiedAt))
+                            .map((d) => ({
+                              value: d.hostname,
+                              label: d.hostname,
+                            })),
+                        ]}
+                        onChange={(val) => updateFilter("app", val)}
+                        ariaLabel="Filter by app"
+                      />
+                    </div>
+                    <div className="scans-filter-result">
+                      <CustomDropdown
+                        label="Result"
+                        value={resultFilter}
+                        options={[
+                          { value: "all", label: "All" },
+                          { value: "issues", label: "Issues found" },
+                          { value: "no_issues", label: "No issues found" },
+                          { value: "could_not_complete", label: "Could not complete" },
+                        ]}
+                        onChange={(val) => updateFilter("result", val)}
+                        ariaLabel="Filter by result"
+                      />
+                    </div>
+                    <div className="scans-filter-date">
+                      <CustomDropdown
+                        label="Date"
+                        value={dateFilter}
+                        options={[
+                          { value: "all", label: "All time" },
+                          { value: "today", label: "Today" },
+                          { value: "7d", label: "Last 7 days" },
+                          { value: "30d", label: "Last 30 days" },
+                        ]}
+                        onChange={(val) => updateFilter("date", val)}
+                        ariaLabel="Filter by date"
+                      />
+                    </div>
+                  </div>
                   {(appFilter !== "all" || resultFilter !== "all" || dateFilter !== "all") && (
                     <button
                       type="button"
                       className="text-action clear-filters-btn"
                       onClick={handleClearFilters}
-                      style={{
-                        marginBottom: "8px",
-                        cursor: "pointer",
-                      }}
                     >
                       Clear filters
                     </button>
@@ -1608,7 +1721,8 @@ export function LoggedInApp({
                       </div>
                       {visibleScans.map((r) => (
                         <button
-                          className="history-row"
+                          type="button"
+                          className="history-row scan-history-card"
                           key={r.id}
                           onClick={() => {
                             setActiveScanId(r.id);
@@ -1627,13 +1741,13 @@ export function LoggedInApp({
                               .catch(() => nav("results"));
                           }}
                         >
-                          <span>{r.date}</span>
-                          <div className="history-target">
-                            <strong>{r.hostname || appDisplay}</strong>
-                            <code>LL-{r.id.slice(0, 8)}</code>
+                          <span className="history-date">{r.date}</span>
+                          <div className="history-target history-host-col">
+                            <strong className="history-host">{r.hostname || appDisplay}</strong>
+                            <code className="history-scanid">LL-{r.id.slice(0, 8)}</code>
                           </div>
-                          <strong>{r.score}</strong>
-                          <span className="spark">
+                          <strong className="history-score">{r.score}</strong>
+                          <span className="spark history-trend">
                             {(r.trend && r.trend.length > 0 ? r.trend : [r.scoreNumber || 100]).map((sc, idx) => (
                               <i
                                 key={idx}
@@ -1645,7 +1759,7 @@ export function LoggedInApp({
                               />
                             ))}
                           </span>
-                          <span className={r.status}>
+                          <span className={`history-status ${r.status}`}>
                             {r.status === "complete" ? "Completed" : r.status === "running" ? "Running" : "Failed"}
                           </span>
                         </button>
@@ -1867,13 +1981,17 @@ export function LoggedInApp({
                       <div style={{ display: "grid", gap: 12 }}>
                         {domains.map((d) => (
                           <div className="domain-row" key={d.id}>
-                            <span>
+                            <div className="domain-row-info">
                               <i style={{ background: d.status === "verified" ? "var(--passed)" : "#d97706" }} />
-                              {d.hostname} <small className={d.status === "verified" ? "" : "pending"}>{d.status === "verified" ? "VERIFIED" : "PENDING"}</small>
-                            </span>
+                              <span className="domain-hostname">{d.hostname}</span>
+                              <small className={d.status === "verified" ? "" : "pending"}>
+                                {d.status === "verified" ? "VERIFIED" : "PENDING"}
+                              </small>
+                            </div>
                             <div className="domain-actions">
                               {d.status === "verified" ? (
                                 <button
+                                  type="button"
                                   className="action-scan"
                                   onClick={() => {
                                     setUrl(d.hostname);
@@ -1884,6 +2002,7 @@ export function LoggedInApp({
                                 </button>
                               ) : (
                                 <button
+                                  type="button"
                                   className="action-verify"
                                   onClick={() => {
                                     setUrl(d.hostname);
@@ -1894,6 +2013,7 @@ export function LoggedInApp({
                                 </button>
                               )}
                               <button
+                                type="button"
                                 className="action-delete"
                                 onClick={() => promptDeleteDomain(d.id, d.hostname)}
                               >
@@ -1946,9 +2066,10 @@ export function LoggedInApp({
             )}
           </div>
         </div>
+        </main>
       </div>
       {selected && <FindingDrawer finding={selected} onClose={() => setSelected(null)} onStatus={updateStatus} />}
-      <Companion message={companionMessage} />
+      {!isOverlayOpen && <Companion message={companionMessage} />}
       {legalDocument && <LegalModal document={legalDocument} onClose={() => setLegalDocument(null)} />}
 
       {/* Toast Notification Container */}

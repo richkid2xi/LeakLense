@@ -1203,21 +1203,34 @@ footer { overflow: hidden; padding: 70px 32px 18px; color: #aaa; background: var
   .step-scan-dot.dot-checking { animation: none !important; }
 }
 
-/* Logged-in product */
+/* Document locking when app-shell is present (Part 1: Document itself never scrolls) */
+html:has(.app-shell),
+body:has(.app-shell),
+#root:has(.app-shell) {
+  height: 100dvh;
+  max-height: 100dvh;
+  overflow: hidden;
+}
+
+/* Logged-in product (Desktop 1024+) */
 .app-shell {
-  min-height: 100vh;
-  display: flex;
-  flex-direction: row;
+  height: 100dvh;
+  max-height: 100dvh;
   width: 100%;
+  display: grid;
+  grid-template-columns: 240px minmax(0, 1fr);
   background: var(--paper);
   position: relative;
+  overflow: hidden;
 }
+
 .app-sidebar {
-  position: sticky;
-  top: 0;
-  height: 100vh;
-  width: 230px;
-  min-width: 230px;
+  position: relative;
+  height: 100dvh;
+  max-height: 100dvh;
+  width: 240px;
+  min-width: 240px;
+  max-width: 240px;
   flex-shrink: 0;
   z-index: 20;
   display: flex;
@@ -1226,50 +1239,208 @@ footer { overflow: hidden; padding: 70px 32px 18px; color: #aaa; background: var
   background: var(--ink);
   color: white;
   box-sizing: border-box;
-  overflow-y: auto;
+  overflow: hidden; /* THE SIDEBAR MUST NEVER SCROLL */
 }
-.app-logo { align-self: flex-start; margin: 0 10px 48px; font: 28px "Instrument Serif"; }
+
+.app-logo {
+  align-self: flex-start;
+  margin: 0 10px clamp(16px, 3.5vh, 44px);
+  font: 28px "Instrument Serif";
+}
 .app-logo sup { font: 9px "JetBrains Mono"; vertical-align: top; }
-.app-sidebar nav { display: grid; gap: 4px; }
-.app-sidebar nav button { display: flex; align-items: center; gap: 13px; padding: 12px; color: #999; border: 1px solid transparent; border-radius: 2px; text-align: left; font-size: 13px; }
-.app-sidebar nav button:hover, .app-sidebar nav button.active { color: white; background: #1d1d1d; border-color: #333; }
-.app-sidebar nav span { width: 16px; font: 14px "JetBrains Mono"; text-align: center; }
+
+.sidebar-new {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  margin-bottom: clamp(14px, 2.5vh, 24px);
+  padding: 0 14px;
+  height: 44px;
+  min-height: 44px;
+  width: 100%;
+  box-sizing: border-box;
+  color: var(--ink);
+  background: white;
+  border-radius: 2px;
+  text-align: left;
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+  flex-shrink: 0;
+  border: 1px solid transparent;
+  cursor: pointer;
+}
+.sidebar-new span {
+  white-space: nowrap;
+}
+
+.app-sidebar nav {
+  display: grid;
+  gap: clamp(2px, 0.8vh, 6px);
+}
+.app-sidebar nav button {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  min-height: 44px;
+  height: 44px;
+  padding: 0 12px;
+  color: #999;
+  border: 1px solid transparent;
+  border-radius: 2px;
+  text-align: left;
+  font-size: 13px;
+  box-sizing: border-box;
+}
+.app-sidebar nav button:hover,
+.app-sidebar nav button.active {
+  color: white;
+  background: #1d1d1d;
+  border-color: #333;
+}
+.app-sidebar nav span {
+  font-size: 13px;
+}
+
 .sample-label { margin-top: auto; padding: 14px 10px 0; color: #888; border-top: 1px solid #333; font: 11px/1.6 "JetBrains Mono"; letter-spacing: .1em; }
-.mobile-drawer-account { margin-top: auto; padding-top: 20px; border-top: 1px solid #333; display: flex; flex-direction: column; gap: 12px; }
-.mobile-drawer-user { display: flex; align-items: center; gap: 12px; padding: 4px 6px; }
-.mobile-drawer-user .user-avatar { width: 34px; height: 34px; border-radius: 2px; background: #262626; border: 1px solid #444; color: white; display: grid; place-items: center; font: 500 12px "JetBrains Mono"; }
-.mobile-drawer-user .user-info { display: flex; flex-direction: column; overflow: hidden; }
-.mobile-drawer-user .user-info strong { font-size: 13px; color: white; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.mobile-drawer-user .user-info small { font-size: 11px; color: #888; font-family: "JetBrains Mono", monospace; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.mobile-drawer-actions { display: flex; flex-direction: column; gap: 4px; }
-.mobile-drawer-actions button { display: flex; align-items: center; gap: 10px; padding: 10px 12px; background: transparent; color: #bbb; border: 1px solid transparent; border-radius: 2px; text-align: left; font-size: 13px; cursor: pointer; transition: all 140ms ease; }
-.mobile-drawer-actions button:hover { color: white; background: #1e1e1e; border-color: #333; }
-.mobile-drawer-actions button.logout-btn { color: #f87171; }
-.mobile-drawer-actions button.logout-btn:hover { background: rgba(220, 38, 38, 0.15); border-color: rgba(220, 38, 38, 0.3); color: #fca5a5; }
-.app-main {
-  flex: 1;
-  min-width: 0;
-  width: calc(100% - 230px);
+
+.sidebar-profile-block,
+.mobile-drawer-account {
+  margin-top: auto;
+  padding: 16px;
+  border-top: 1px solid #333;
   display: flex;
   flex-direction: column;
-  background: var(--paper);
+  gap: clamp(8px, 1.5vh, 12px);
+  box-sizing: border-box;
 }
-.topbar-left { display: flex; align-items: center; gap: 12px; }
-.topbar-breadcrumb { display: flex; align-items: center; gap: 8px; font-size: 13px; font-family: "JetBrains Mono", monospace; }
-.crumb-brand { font-weight: 600; color: var(--ink); letter-spacing: 0.04em; }
-.crumb-divider { color: var(--muted); opacity: 0.6; }
-.crumb-screen { color: var(--muted); }
+.mobile-drawer-user {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 4px 0;
+  min-width: 0;
+}
+.mobile-drawer-user .user-avatar {
+  width: 40px;
+  height: 40px;
+  min-width: 40px;
+  flex-shrink: 0;
+  border-radius: 2px;
+  background: #262626;
+  border: 1px solid #444;
+  color: white;
+  display: grid;
+  place-items: center;
+  font: 500 12px "JetBrains Mono";
+}
+.mobile-drawer-user .user-info {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-width: 0;
+  flex: 1;
+}
+.mobile-drawer-user .user-info strong {
+  font-size: 13px;
+  color: white;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+.mobile-drawer-user .user-info small {
+  font-size: 12px;
+  color: #888;
+  font-family: "JetBrains Mono", monospace;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+.mobile-drawer-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.mobile-drawer-actions button,
+.drawer-action-btn {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 44px;
+  height: 44px;
+  padding: 0 12px;
+  background: transparent;
+  color: #bbb;
+  border: 1px solid transparent;
+  border-radius: 2px;
+  text-align: left;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 140ms ease;
+  box-sizing: border-box;
+  white-space: nowrap;
+}
+.mobile-drawer-actions button .material-icon,
+.drawer-action-btn .material-icon,
+.drawer-action-btn .material-symbols-outlined {
+  font-size: 18px;
+  width: 18px;
+  text-align: center;
+  flex-shrink: 0;
+}
+.mobile-drawer-actions button:hover,
+.drawer-action-btn:hover {
+  color: white;
+  background: #1e1e1e;
+  border-color: #333;
+}
+.mobile-drawer-actions button.logout-btn,
+.drawer-action-btn.logout-btn {
+  color: #f87171;
+}
+.mobile-drawer-actions button.logout-btn:hover,
+.drawer-action-btn.logout-btn:hover {
+  background: rgba(220, 38, 38, 0.15);
+  border-color: rgba(220, 38, 38, 0.3);
+  color: #fca5a5;
+}
+
+.app-main {
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;
+  max-height: 100dvh;
+  min-width: 0;
+  overflow: hidden;
+  background: var(--paper);
+  position: relative;
+}
+
+.topbar-left { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.topbar-breadcrumb { display: flex; align-items: center; gap: 8px; font-size: 13px; font-family: "JetBrains Mono", monospace; min-width: 0; }
+.crumb-brand { font-weight: 600; color: var(--ink); letter-spacing: 0.04em; flex-shrink: 0; }
+.crumb-divider { color: var(--muted); opacity: 0.6; flex-shrink: 0; }
+.crumb-screen { color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
 .mobile-hamburger-btn, .mobile-close-btn, .sidebar-backdrop { display: none; }
 .sidebar-header-row { display: flex; align-items: center; justify-content: space-between; }
-.app-topbar { position: sticky; top: 0; z-index: 15; height: 64px; display: flex; align-items: center; justify-content: space-between; padding: 0 32px; background: rgba(243,243,240,.96); border-bottom: 1px solid var(--hairline); backdrop-filter: blur(10px); }
+.app-topbar { position: sticky; top: 0; z-index: 15; height: 64px; display: flex; align-items: center; justify-content: space-between; padding: 0 32px; background: rgba(243,243,240,.96); border-bottom: 1px solid var(--hairline); backdrop-filter: blur(10px); flex-shrink: 0; box-sizing: border-box; }
 .account-button { display: flex; align-items: center; gap: 10px; font-size: 13px; }
 .account-button span { width: 29px; height: 29px; display: grid; place-items: center; background: white; border: 1px solid var(--hairline); border-radius: 2px; font: 500 11px "JetBrains Mono"; }
 .account-button i { color: var(--muted); font-style: normal; }
 .account-wrap { position: relative; }
 .account-menu { position: absolute; right: 0; top: 42px; width: 170px; padding: 7px; background: white; border: 1px solid var(--hairline); box-shadow: 6px 6px 0 rgba(14,14,14,.08); }
 .account-menu button { width: 100%; padding: 10px; text-align: left; font-size: 13px; }
-.account-menu button:hover { background: var(--paper); }
-.app-content { min-height: calc(100vh - 64px); flex: 1; background-image: repeating-linear-gradient(90deg, transparent 0, transparent calc(8.333% - 1px), rgba(217,217,211,.35) calc(8.333% - 1px), rgba(217,217,211,.35) 8.333%); }
+
+.app-scroll-container {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+.app-content { min-height: 100%; flex: 1; background-image: repeating-linear-gradient(90deg, transparent 0, transparent calc(8.333% - 1px), rgba(217,217,211,.35) calc(8.333% - 1px), rgba(217,217,211,.35) 8.333%); box-sizing: border-box; }
 .app-screen { width: 100%; max-width: 100%; margin: 0; padding: 36px 40px 90px; box-sizing: border-box; }
 .narrow-screen { max-width: 100%; width: 100%; }
 .app-page-title { margin-bottom: 40px; }
@@ -1334,9 +1505,9 @@ footer { overflow: hidden; padding: 70px 32px 18px; color: #aaa; background: var
   top: 0;
   right: 0;
   bottom: 0;
-  width: min(620px, 100%);
-  height: 100vh;
-  max-height: 100vh;
+  width: clamp(420px, 36vw, 560px);
+  height: 100dvh;
+  max-height: 100dvh;
   overflow-y: auto;
   overscroll-behavior-y: contain;
   padding: 32px;
@@ -1344,6 +1515,7 @@ footer { overflow: hidden; padding: 70px 32px 18px; color: #aaa; background: var
   border-left: 1px solid var(--ink);
   box-shadow: -15px 0 30px rgba(14, 14, 14, 0.12);
   box-sizing: border-box;
+  z-index: 1000;
 }
 .drawer-head {
   position: sticky;
@@ -1576,26 +1748,53 @@ footer { overflow: hidden; padding: 70px 32px 18px; color: #aaa; background: var
 .domain-actions button.action-delete, .danger-zone button { color: var(--critical); border-bottom: 1px solid; font-size: 12px; }
 .toggle-row { display: flex; align-items: center; gap: 12px; font-size: 13px; }.toggle-row input { accent-color: var(--ink); }.danger-zone { color: var(--critical); }
 
-@media (max-width: 850px) {
+/* ==========================================================================
+   Responsive Breakpoints:
+   - Desktop: 1024px and up (Sidebar never scrolls, workspace scrolls)
+   - Tablet: 768px - 1023px (Off-canvas drawer, full-screen sheet)
+   - Mobile: 360px - 767px (Spacing pass, 44px touch targets, card layouts)
+   ========================================================================== */
+
+@media (max-width: 1023.98px) {
   .app-shell {
-    display: flex;
-    flex-direction: column;
+    display: block;
+    height: 100dvh;
+    max-height: 100dvh;
+    overflow: hidden;
+    position: relative;
+  }
+
+  .app-main {
     width: 100%;
+    height: 100dvh;
+    max-height: 100dvh;
     min-width: 0;
+  }
+
+  .app-topbar {
+    height: 56px;
+    padding: 0 max(16px, env(safe-area-inset-right)) 0 max(16px, env(safe-area-inset-left));
+  }
+
+  .desktop-only-account {
+    display: none !important;
   }
 
   .mobile-hamburger-btn {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 38px;
-    height: 38px;
+    width: 44px;
+    height: 44px;
+    min-width: 44px;
+    min-height: 44px;
+    padding: 0;
     background: transparent;
     border: 1px solid var(--hairline);
     border-radius: 2px;
     color: var(--ink);
     cursor: pointer;
-    padding: 0;
+    flex-shrink: 0;
     transition: background 160ms ease, border-color 160ms ease;
   }
   .mobile-hamburger-btn:hover {
@@ -1603,24 +1802,19 @@ footer { overflow: hidden; padding: 70px 32px 18px; color: #aaa; background: var
     border-color: var(--ink);
   }
 
-  .mobile-close-btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 32px;
-    height: 32px;
-    background: rgba(255, 255, 255, 0.08);
-    border: 1px solid rgba(255, 255, 255, 0.12);
-    border-radius: 2px;
-    color: #bbb;
-    cursor: pointer;
-    padding: 0;
-    margin-bottom: 30px;
-    transition: background 160ms ease, color 160ms ease;
+  .topbar-breadcrumb {
+    min-width: 0;
+    flex: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-size: 13px;
   }
-  .mobile-close-btn:hover {
-    background: rgba(255, 255, 255, 0.18);
-    color: white;
+  .crumb-screen {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    min-width: 0;
   }
 
   .sidebar-backdrop {
@@ -1631,7 +1825,6 @@ footer { overflow: hidden; padding: 70px 32px 18px; color: #aaa; background: var
     backdrop-filter: blur(4px);
     -webkit-backdrop-filter: blur(4px);
     z-index: 999;
-    animation: fadeIn 200ms ease;
   }
 
   .app-sidebar {
@@ -1639,173 +1832,560 @@ footer { overflow: hidden; padding: 70px 32px 18px; color: #aaa; background: var
     top: 0;
     left: 0;
     bottom: 0;
-    width: 270px;
-    max-width: 84vw;
-    height: 100vh;
+    width: min(86vw, 320px);
+    height: 100dvh;
+    max-height: 100dvh;
     z-index: 1000;
     display: flex;
     flex-direction: column;
-    padding: 24px 18px;
+    padding: max(20px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) max(20px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
     background: var(--ink);
     color: white;
-    box-shadow: 12px 0 32px rgba(0, 0, 0, 0.45);
+    box-shadow: none; /* CRITICAL: NO box shadow when closed to eliminate dark shadow strip */
     transform: translateX(-100%);
-    transition: transform 260ms cubic-bezier(0.2, 0.8, 0.2, 1);
+    visibility: hidden;
+    transition: transform 260ms cubic-bezier(0.2, 0.8, 0.2, 1), visibility 260ms, box-shadow 260ms;
+    overflow: hidden;
     box-sizing: border-box;
   }
 
   .app-sidebar.mobile-open {
     transform: translateX(0);
+    visibility: visible;
+    box-shadow: 12px 0 32px rgba(0, 0, 0, 0.45);
   }
 
-  .app-sidebar .app-logo {
-    margin: 0 0 30px;
-    font-size: 26px;
-  }
-
-  .app-sidebar .sidebar-new {
-    display: flex;
+  .mobile-close-btn {
+    display: inline-flex;
     align-items: center;
-    gap: 11px;
-    margin-bottom: 24px;
-    padding: 11px 12px;
-    font-size: 13px;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    min-width: 44px;
+    min-height: 44px;
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 2px;
+    color: #bbb;
+    cursor: pointer;
+    padding: 0;
+    transition: background 160ms ease, color 160ms ease;
+  }
+  .mobile-close-btn:hover {
+    background: rgba(255, 255, 255, 0.18);
+    color: white;
   }
 
-  .app-sidebar nav {
-    display: grid;
-    gap: 6px;
+  .sidebar-new {
+    width: 100% !important;
+    height: 44px !important;
+    min-height: 44px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: flex-start !important;
+    gap: 11px !important;
+    padding: 0 14px !important;
+    font-size: 13px !important;
+    white-space: nowrap !important;
+    flex-shrink: 0 !important;
+  }
+  .sidebar-new span {
+    font-size: 13px !important;
+    white-space: nowrap !important;
   }
 
-  .app-sidebar nav button {
+  .app-screen {
+    padding: 24px 24px 60px;
+  }
+
+  /* Full-screen Finding Sheet (Part 6) */
+  .finding-drawer {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: 100% !important;
+    max-width: 100% !important;
+    height: 100dvh;
+    max-height: 100dvh;
+    border-left: none;
+    padding: 0 !important;
+    z-index: 1000;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    animation: sheetIn 220ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  }
+  .finding-drawer .drawer-head {
+    position: sticky;
+    top: 0;
+    margin: 0 !important;
+    padding: max(12px, env(safe-area-inset-top)) 16px 12px !important;
+    height: 56px;
+    border-bottom: 1px solid var(--hairline);
+    background: var(--paper);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    z-index: 10;
+  }
+  .finding-drawer .drawer-close-btn {
+    width: 44px;
+    height: 44px;
+    min-width: 44px;
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 !important;
+  }
+  .finding-drawer .drawer-close-btn .close-label {
+    display: none;
+  }
+  .finding-drawer .drawer-body {
+    flex: 1;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding: 20px 20px max(80px, calc(env(safe-area-inset-bottom) + 80px));
+  }
+  .finding-drawer h2 {
+    font-size: clamp(26px, 6vw, 34px);
+  }
+  .drawer-mobile-bottom-bar {
     display: flex;
     align-items: center;
     gap: 12px;
-    padding: 12px;
-    color: #aaa;
+    padding: 12px 16px max(12px, env(safe-area-inset-bottom));
+    border-top: 1px solid var(--hairline);
+    background: rgba(243, 243, 240, 0.98);
+    backdrop-filter: blur(10px);
+    position: sticky;
+    bottom: 0;
+    z-index: 10;
+  }
+  .mobile-status-control {
+    margin-top: 0 !important;
+    padding-top: 0 !important;
+    border-top: none !important;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .mobile-copy-prompt-btn {
+    flex: 1;
+    min-height: 44px;
+    height: 44px;
+    justify-content: center;
+    gap: 8px;
     font-size: 13px;
-    border: 1px solid transparent;
-    border-radius: 2px;
   }
-  .app-sidebar nav button:hover,
-  .app-sidebar nav button.active {
-    color: white;
-    background: #1d1d1d;
-    border-color: #333;
+  .desktop-status-wrap {
+    display: none;
   }
-  .app-sidebar nav span {
-    font-size: 14px;
+}
+
+@keyframes sheetIn {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+
+@media (max-width: 767.98px) {
+  .app-screen {
+    padding: 20px 16px 60px;
+  }
+  .app-content {
+    padding-bottom: 96px; /* Space for mobile companion */
   }
 
-  .app-main {
+  .companion {
+    right: max(12px, env(safe-area-inset-right));
+    bottom: max(12px, env(safe-area-inset-bottom));
+  }
+  .companion-bot {
+    width: 44px;
+    height: 44px;
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  .results-hero {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+  .results-hero h1 {
+    font-size: clamp(54px, 14vw, 76px);
+  }
+  .severity-summary {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    border: 1px solid var(--hairline);
+    background: white;
+    margin-top: 16px;
+  }
+  .severity-summary div {
+    padding: 12px 6px;
+    text-align: center;
+    border-right: 1px solid var(--hairline);
+    min-width: 0;
+  }
+  .severity-summary div:last-child {
+    border-right: none;
+  }
+  .severity-summary div strong {
+    font-size: 20px;
+    display: block;
+  }
+  .severity-summary div span {
+    font: 500 11px/1 "JetBrains Mono", monospace;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  .scan-meta {
+    flex-direction: column;
+    align-items: stretch;
+    padding: 16px;
+    gap: 14px;
+  }
+  .scan-meta-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 10px;
+    width: 100%;
+  }
+  .scan-meta-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+  }
+  .compare-rescan-btn {
+    width: 100%;
+    min-height: 44px;
+    height: 44px;
+    justify-content: center;
+  }
+
+  /* Severity filter chips horizontally scrollable */
+  .severity-chips-scroll-wrap {
+    overflow-x: auto;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+    scroll-snap-type: x mandatory;
+    max-width: 100%;
+    mask-image: linear-gradient(to right, black 88%, transparent 100%);
+    -webkit-mask-image: linear-gradient(to right, black 88%, transparent 100%);
+    padding-bottom: 4px;
+  }
+  .severity-chips-scroll-wrap::-webkit-scrollbar {
+    display: none;
+  }
+  .severity-chips-row {
+    display: inline-flex;
+    gap: 8px;
+    white-space: nowrap;
+  }
+  .severity-chips-row button {
+    scroll-snap-align: start;
+    min-height: 44px;
+    height: 44px;
+    padding: 0 14px;
+    flex-shrink: 0;
+    font-size: 13px;
+  }
+  .table-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
+  .status-filter-select {
+    min-height: 44px;
+    height: 44px;
+    width: 100%;
+    font-size: 13px;
+  }
+
+  /* Findings cards on mobile */
+  .findings-table {
+    background: transparent;
+    border: none;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .findings-table .table-head {
+    display: none !important;
+  }
+  .findings-table .finding-card {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 16px;
+    border: 1px solid var(--hairline) !important;
+    background: white;
+    border-radius: 2px;
+    width: 100%;
+    min-height: 0;
+    box-sizing: border-box;
+    cursor: pointer;
+    text-align: left;
+  }
+  .findings-table .finding-card:focus-visible {
+    outline: 2px solid var(--blue);
+    outline-offset: 2px;
+  }
+  .finding-card-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+  }
+  .finding-card-title {
+    font: 400 20px/1.2 "Instrument Serif", Georgia, serif;
+    color: var(--ink);
+    overflow-wrap: anywhere;
+  }
+  .finding-card-bottom {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 28px;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+  }
+  .finding-card-where {
+    font: 400 12px/1.4 "JetBrains Mono", monospace;
+    color: var(--muted);
+    background: var(--paper);
+    padding: 4px 6px;
+    border-radius: 2px;
+    overflow-wrap: anywhere;
+  }
+  .finding-card-chevron {
+    display: flex;
+    justify-content: flex-end;
+    color: var(--muted);
+  }
+
+  /* Scan History (Part 7) */
+  .history-page-header {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 14px;
+  }
+  .new-scan-btn-compact {
+    width: 100%;
+    min-height: 44px;
+    height: 44px;
+    justify-content: center;
+  }
+  .scans-filter-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+    width: 100%;
+  }
+  .scans-filter-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    width: 100%;
+  }
+  .scans-filter-app {
+    grid-column: 1 / -1;
+    width: 100%;
+  }
+  .scans-filter-result,
+  .scans-filter-date {
     width: 100%;
     min-width: 0;
   }
-  .app-topbar {
-    position: sticky;
-    top: 0;
-    height: 56px;
-    padding: 0 16px;
+  .clear-filters-btn {
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
   }
-  .account-button {
-    font-size: 12px;
-  }
-  .app-content {
-    min-height: calc(100vh - 56px);
-  }
-  .app-screen {
-    width: 100%;
-    max-width: 100%;
-    padding: 24px 16px 60px;
-    box-sizing: border-box;
-  }
-  .app-page-title {
-    margin-bottom: 30px;
-  }
-  .app-page-title h1 {
-    font-size: clamp(34px, 8vw, 46px);
-    line-height: 1.05;
-  }
-  .app-form-card, .verify-card, .progress-card {
-    padding: 20px 16px;
-  }
-  .builder-select {
-    grid-template-columns: 1fr 1fr;
-  }
-  .builder-select button {
-    border-right: 1px solid var(--hairline);
-    margin: -1px 0 0 -1px;
-  }
-  .app-checks {
-    grid-template-columns: 1fr;
-  }
-  .results-hero {
-    display: block;
-  }
-  .results-hero h1 {
-    font-size: clamp(60px, 16vw, 92px);
-  }
-  .severity-summary {
-    margin-top: 25px;
-    overflow-x: auto;
-  }
-  .severity-summary div {
-    min-width: 70px;
-  }
-  .scan-meta {
-    align-items: flex-start;
-    flex-direction: column;
-    gap: 8px;
-  }
-  .scan-meta button {
-    margin: 10px 0 0;
-  }
-  .table-toolbar {
-    gap: 10px;
-    overflow-x: auto;
-  }
-  .table-toolbar > div {
+
+  .history-table {
+    background: transparent;
+    border: none;
     display: flex;
+    flex-direction: column;
+    gap: 10px;
   }
-  .table-row {
-    grid-template-columns: .7fr 2fr .6fr;
+  .history-table .head {
+    display: none !important;
   }
-  .table-row > code {
-    display: none;
+  .scan-history-card {
+    display: grid !important;
+    grid-template-areas:
+      "host score"
+      "date status"
+      "trend scanid";
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 8px 12px;
+    padding: 14px 16px;
+    border: 1px solid var(--hairline);
+    background: white;
+    border-radius: 2px;
+    width: 100%;
+    box-sizing: border-box;
+    cursor: pointer;
+    text-align: left;
+    min-height: 0;
   }
-  .finding-drawer {
+  .scan-history-card .history-host-col {
+    display: contents;
+  }
+  .scan-history-card .history-host {
+    grid-area: host;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--ink);
+    overflow-wrap: anywhere;
+    white-space: normal;
+  }
+  .scan-history-card .history-score {
+    grid-area: score;
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--ink);
+    text-align: right;
+    min-width: 44px;
+  }
+  .scan-history-card .history-date {
+    grid-area: date;
+    font-size: 12px;
+    color: var(--muted);
+  }
+  .scan-history-card .history-status {
+    grid-area: status;
+    text-align: right;
+    font: 500 12px "JetBrains Mono", monospace;
+  }
+  .scan-history-card .history-trend {
+    grid-area: trend;
+  }
+  .scan-history-card .history-scanid {
+    grid-area: scanid;
+    text-align: right;
+    font: 400 11px "JetBrains Mono", monospace;
+    color: var(--muted);
+  }
+
+  /* Apps & Settings (Part 8) */
+  .apps-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+  .app-card {
     padding: 20px 16px;
-  }
-  .finding-drawer h2 {
-    font-size: clamp(32px, 8vw, 44px);
-  }
-  .compare-scores {
-    grid-template-columns: 1fr 35px 1fr;
-  }
-  .compare-scores > div {
-    padding: 20px 12px;
-  }
-  .compare-scores strong {
-    font-size: clamp(38px, 10vw, 60px);
-  }
-  .compare-grid-4 {
-    grid-template-columns: 1fr !important;
-  }
-  .row-title {
-    display: block;
-  }
-  .row-title .button {
-    margin-top: 20px;
-  }
-  .history-row {
-    grid-template-columns: 1.1fr .7fr .5fr;
-  }
-  .history-row code, .history-row .spark {
-    display: none;
   }
   .settings-list > section {
     grid-template-columns: 1fr;
-    gap: 25px;
+    gap: 20px;
+    padding: 24px 0;
+  }
+  .settings-fields input {
+    height: 44px;
+    min-height: 44px;
+  }
+  .settings-fields .button {
+    width: 100%;
+    min-height: 44px;
+    height: 44px;
+    justify-content: center;
+  }
+  .domain-row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+    padding: 14px;
+  }
+  .domain-row-info {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+  }
+  .domain-hostname {
+    overflow-wrap: anywhere;
+    font-size: 13px;
+    font-weight: 500;
+  }
+  .domain-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    width: 100%;
+  }
+  .domain-actions button {
+    min-height: 44px;
+    height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid var(--hairline);
+    border-radius: 2px;
+    font-size: 13px;
+    background: var(--paper);
+    cursor: pointer;
+  }
+  .danger-zone .button-danger {
+    width: 100%;
+    min-height: 44px;
+    height: 44px;
+    font-size: 14px;
+    justify-content: center;
+  }
+}
+
+@media (max-width: 359.98px) {
+  .check-run-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+  }
+  .status-pill {
+    align-self: flex-start;
+  }
+  .severity-summary {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+  .severity-summary div:nth-child(2) {
+    border-right: none;
+  }
+  .severity-summary div:nth-child(-n+2) {
+    border-bottom: 1px solid var(--hairline);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-sidebar {
+    transition: opacity 160ms ease !important;
+    transform: none !important;
+  }
+  .app-sidebar:not(.mobile-open) {
+    opacity: 0 !important;
+    visibility: hidden !important;
+  }
+  .app-sidebar.mobile-open {
+    opacity: 1 !important;
+    visibility: visible !important;
+  }
+
+  .finding-drawer {
+    animation: fadeIn 160ms ease both !important;
+    transform: none !important;
   }
 }
 
@@ -1854,19 +2434,7 @@ footer { overflow: hidden; padding: 70px 32px 18px; color: #aaa; background: var
 .empty-app-card button { justify-self: center; border-bottom: 1px solid; font: 12px "JetBrains Mono"; }
 button:active, .button:active, .app-card:active { transform: translateY(1px) scale(.99); }
 
-@media (max-width: 850px) {
-  .sidebar-new { width: 34px; height: 34px; justify-content: center; margin: 0 8px 0 0; padding: 0; font-size: 0; }
-  .sidebar-new span { font-size: 18px; }
-  .table-head { display: none; }
-  .findings-table { display: grid; gap: 10px; background: transparent; border: 0; }
-  .table-row { min-height: 155px; display: flex; flex-wrap: wrap; align-content: center; gap: 12px; padding: 20px; background: white; border: 1px solid var(--hairline) !important; }
-  .table-row > span:first-child, .table-row > strong { width: 100%; }
-  .table-row > strong { font: 24px/1.05 "Instrument Serif"; }
-  .table-row > code { display: block; width: 70%; }
-  .table-row > span:last-child { margin-left: auto; }
-  .apps-grid { grid-template-columns: 1fr; }
-  .drawer-head { top: -22px; margin: -22px -22px 0; padding: 18px 22px; }
-}
+
 
 @media (prefers-reduced-motion: reduce) {
   .screen-transition, .scan-stepper .current::before { animation: none; }
@@ -2664,7 +3232,6 @@ html.is-ready .companion {
   .app-content, .app-screen, .app-form-card, .verify-card, .progress-card { min-width: 0; }
   .table-toolbar { padding-bottom: 8px; }
   .table-toolbar select { flex: 0 0 auto; }
-  .finding-drawer { width: 100%; max-width: 100%; padding-bottom: max(22px, env(safe-area-inset-bottom)); }
   .legal-modal { width: calc(100vw - 24px); max-width: none; }
   .modal-backdrop { padding: 12px; }
   .companion { right: max(14px, env(safe-area-inset-right)); bottom: max(14px, env(safe-area-inset-bottom)); }
@@ -2870,53 +3437,7 @@ html.is-ready .companion {
   }
 }
 
-/* Responsive adjustments for finding drawer across 1440, 1024, 768, and 390 widths (Part D4) */
-@media (max-width: 1024px) {
-  .finding-drawer {
-    width: min(580px, 100vw);
-    padding: 28px 24px;
-  }
-  .drawer-head {
-    top: -28px;
-    margin: -28px -24px 18px -24px;
-    padding: 18px 24px;
-  }
-}
 
-@media (max-width: 768px) {
-  .finding-drawer {
-    width: 100vw;
-    max-width: 100vw;
-    padding: 24px 18px 36px;
-  }
-  .drawer-head {
-    top: -24px;
-    margin: -24px -18px 16px -18px;
-    padding: 16px 18px;
-  }
-  .finding-drawer h2 {
-    font-size: 28px;
-  }
-}
-
-@media (max-width: 390px) {
-  .finding-drawer {
-    width: 100vw;
-    max-width: 100vw;
-    padding: 20px 14px 44px;
-  }
-  .drawer-head {
-    top: -20px;
-    margin: -20px -14px 14px -14px;
-    padding: 14px;
-  }
-  .finding-drawer h2 {
-    font-size: 24px;
-  }
-  .fix-choice {
-    grid-template-columns: 1fr;
-  }
-}
 
 /* Compare Rescans styling (Part D5) */
 .compare-dropdowns-bar {
