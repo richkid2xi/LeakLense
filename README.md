@@ -1,369 +1,400 @@
 # LeakLens
 
-> **Passive, zero-false-positive security intelligence for applications built with AI builders and modern web frameworks.**
+> **Passive exposure detection for applications built with modern web frameworks and AI generation tools.**
 
-[![CI Monorepo Tests](https://img.shields.io/badge/tests-158%20passed-brightgreen?style=flat-square)](file:///c:/Users/richa/OneDrive/Desktop/Projects/LeakLens)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.7%20strict-blue?style=flat-square)](file:///c:/Users/richa/OneDrive/Desktop/Projects/LeakLens)
-[![React](https://img.shields.io/badge/React-19.0-61dafb?style=flat-square)](file:///c:/Users/richa/OneDrive/Desktop/Projects/LeakLens)
-[![Node.js](https://img.shields.io/badge/Node.js-20%2B%20%7C%2022%20LTS-green?style=flat-square)](file:///c:/Users/richa/OneDrive/Desktop/Projects/LeakLens)
-[![License](https://img.shields.io/badge/license-MIT-lightgrey?style=flat-square)](file:///c:/Users/richa/OneDrive/Desktop/Projects/LeakLens/LICENSE)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.7%20strict-blue?style=flat-square)](https://www.typescriptlang.org/)
+[![React](https://img.shields.io/badge/React-19.0-61dafb?style=flat-square)](https://react.dev/)
+[![Node.js](https://img.shields.io/badge/Node.js-20%2B%20%7C%2022%20LTS-green?style=flat-square)](https://nodejs.org/)
+[![License](https://img.shields.io/badge/license-MIT-lightgrey?style=flat-square)](LICENSE)
 
-LeakLens is a purpose-built, educational security scanner designed to illuminate public exposures in modern web applications. Specifically tailored for products built with AI generation tools (such as **Lovable**, **Bolt.new**, **Cursor**, **v0**, and **Replit Agent**) as well as standard React, Vite, and Next.js applications, LeakLens detects client-side secret leakage, reachable configuration artifacts, permissive cross-origin policies, and storage misconfigurations.
+LeakLens is a focused, educational security scanner that inspects public, client-facing web assets to identify exposures in deployed web applications. It is tailored for projects built with AI coding assistants (such as Lovable, Bolt.new, Cursor, and v0) as well as modern React, Vite, and Next.js applications.
 
-Instead of outputting cryptic compliance jargon, LeakLens translates every finding into plain-English consequences, manual remediation checklists, and **parameterized, 1-click prompts engineered for AI coding agents**.
+Instead of generating generic compliance reports, LeakLens explains observed exposures in plain language, provides human remediation checklists, and generates parameterized prompts engineered for AI coding agents.
+
+Rather than claiming unprovable guarantees, LeakLens relies on concrete mechanisms to reduce false alarms:
+
+- **SPA Fallback Protection**: Validates responses returning HTTP 200 to confirm whether they are actually the target asset or merely the Single-Page Application HTML index fallback.
+- **Structure Validation**: Verifies internal formatting before raising findings (for example, verifying Git internal structures or `.env` `KEY=VALUE` syntax).
+- **Public-Key Allowlist**: Distinguishes between secret credentials and intentionally public identifiers (such as Stripe publishable keys, Supabase anonymous JWTs, and Firebase web API keys).
 
 ---
 
 ## Table of Contents
 
-1. [Executive Summary & Problem Statement](#1-executive-summary--problem-statement)
-2. [Case Study: The Client-Side Secret Leak in Lovable & Bolt](#2-case-study-the-client-side-secret-leak-in-lovable--bolt)
-3. [The Psychology Behind the UI & UX Design](#3-the-psychology-behind-the-ui--ux-design)
-4. [Deep-Dive: How Each Engine Module Works](#4-deep-dive-how-each-engine-module-works)
-   - [Verification Engine](#41-verification-engine-appsapisrcmodulesverification)
-   - [Security Core & Network Sandbox](#42-security-core--network-sandbox-packagessecurity)
-   - [Detection Engine & Pipeline](#43-detection-engine--pipeline-packagesdetectors--appsworker)
-   - [Scoring & Differential Comparison Engine](#44-scoring--differential-comparison-engine-packagesshared)
-   - [Worker Queue & Execution Strategy](#45-worker-queue--execution-strategy-appsworker)
-   - [Knowledge Base & AI Prompt Generator](#46-knowledge-base--ai-prompt-generator-packageskb)
-   - [Authentication & Identity Scoping](#47-authentication--identity-scoping-appsapi)
-5. [Monorepo Architecture](#5-monorepo-architecture)
-6. [Room for Scaling & System Roadmap](#6-room-for-scaling--system-roadmap)
-7. [Installation, Setup & Testing](#7-installation-setup--testing)
+1. [Overview & Problem Statement](#1-overview--problem-statement)
+2. [Case Study: Self-Test Validation](#2-case-study-self-test-validation)
+3. [What is Checked & Pipeline Coverage](#3-what-is-checked--pipeline-coverage)
+4. [Limitations & Exclusions](#4-limitations--exclusions)
+5. [How the Engine Works](#5-how-the-engine-works)
+   - [Verification Engine](#51-verification-engine)
+   - [Network Sandbox & SSRF Isolation](#52-network-sandbox--ssrf-isolation)
+   - [Detection Engine](#53-detection-engine)
+   - [Scoring Algorithm](#54-scoring-algorithm)
+   - [Differential Comparison & Fingerprinting](#55-differential-comparison--fingerprinting)
+   - [Worker Queue & Database Connections](#56-worker-queue--database-connections)
+   - [Knowledge Base & Remediation Prompts](#57-knowledge-base--remediation-prompts)
+6. [Design & User Experience](#6-design--user-experience)
+7. [Monorepo Architecture](#7-monorepo-architecture)
+8. [Installation & Setup](#8-installation--setup)
+9. [Running Tests](#9-running-tests)
+10. [Security & Responsible Use](#10-security--responsible-use)
+11. [Roadmap](#11-roadmap)
+12. [License](#12-license)
 
 ---
 
-## 1. Executive Summary & Problem Statement
+## 1. Overview & Problem Statement
 
-### The AI Builder Blind Spot
+### Client-Side Exposures in Modern Builds
 
-The emergence of AI coding platforms has catalyzed software creation. Founders and engineers now build production-grade SaaS products in hours. However, the architectural abstractions that make AI builders powerful also introduce subtle, catastrophic security blind spots:
+Modern web build tools and AI coding platforms accelerate feature development, but frontend bundling often leads to unintended exposure:
 
-```
-┌────────────────────────────────────────────────────────┐
-│               AI Builder Generation Trap               │
-├────────────────────────────────────────────────────────┤
-│  Prompt: "Integrate OpenAI API for chat generation"    │
-│                                                        │
-│  AI Builder Action:                                    │
-│  - Imports OpenAI SDK directly in frontend React code  │
-│  - Reads: const key = import.meta.env.VITE_OPENAI_KEY  │
-│  - Compiles bundle: key is bundled into public JS chunk│
-│                                                        │
-│  Developer Assumption:                                 │
-│  - "The key is an environment variable, so it's safe"  │
-│                                                        │
-│  Reality:                                              │
-│  - The secret is transmitted to every visitor's browser│
-└────────────────────────────────────────────────────────┘
-```
+1. **Client-Side Secret Embedding**: Developers storing credentials in environment variables prefixed with `VITE_` or `NEXT_PUBLIC_` inadvertently bundle private tokens directly into client-side JavaScript chunks distributed to every visitor.
+2. **SPA Fallback Ambiguity**: When an unconfigured single-page application server receives a request for non-existent files like `/.env`, it often responds with HTTP 200 OK serving `index.html`. Naive scanners flag these as severe leaks, while developers may overlook genuinely exposed configuration files.
+3. **Overly Permissive Cross-Origin Resource Sharing (CORS)**: Rapid development configurations sometimes combine wildcard origins (`Access-Control-Allow-Origin: *`) with credential flags (`Access-Control-Allow-Credentials: true`), permitting third-party contexts to read cross-origin responses.
 
-1. **Client-Side Secret Embedding**: Developers store API keys (OpenAI, Stripe secret keys `sk_live_...`, GitHub PATs, AWS access keys) in environment variables prefixed with `VITE_` or `NEXT_PUBLIC_`. Build tools like Vite and Webpack inline these strings directly into client bundles.
-2. **Single-Page Application (SPA) Fallback Ambiguity**: When an unconfigured server receives a request for `/.env`, standard SPAs serve `index.html` with HTTP 200 OK. Flawed security scanners trigger deafening false alarms, while careless developers assume true `.env` files are unreachable.
-3. **Overly Permissive Cross-Origin Resource Sharing (CORS)**: Rapid scaffolding often uses wildcard CORS headers (`Access-Control-Allow-Origin: *`) alongside credential flags, exposing private user payloads to malicious third-party contexts.
-4. **Tooling Fatigue and Security FUD**: Traditional penetration testing suites (Qualys, Nessus, SonarQube) generate hundred-page PDFs loaded with false positives, compliance legalese, and zero actionable remediation paths for modern AI builders.
-
-LeakLens solves this by acting as a **passive, zero-false-positive mirror** for developers.
+LeakLens acts as a passive observer of public assets, identifying these issues without executing destructive attacks.
 
 ---
 
-## 2. Case Study: The Client-Side Secret Leak in Lovable & Bolt
+## 2. Case Study: Self-Test Validation
 
-### Scenario
-An indie founder builds an AI copywriter web application using Lovable. The app connects to Supabase for authentication and Stripe for subscriptions.
+To validate the scanner's real-world behavior, a self-test deployment was created with deliberately planted, fake exposures:
 
-### The Exposure
-- During generation, the AI created an API wrapper inside `src/lib/ai.ts` using `import.meta.env.VITE_OPENAI_API_KEY`.
-- The developer added their paid OpenAI key with tier-4 rate limits into their local `.env`.
-- When deployed to production on Vercel, the entire JS bundle contained:
-  ```javascript
-  const Wt="sk-proj-a9F8dK91mZ...[REDACTED]...T3BlbkFJ";
+### Planted Test Conditions (All Values Fake)
+
+- **Bundled Keys**: Five fake credentials inserted into client-side JavaScript (including fake OpenAI, Stripe secret, GitHub, AWS, and private key structures).
+- **Public Git Metadata**: Exposed `.git` repository metadata files (`/.git/HEAD` and `/.git/config`).
+- **Permissive CORS**: An endpoint returning `Access-Control-Allow-Origin: *` alongside `Access-Control-Allow-Credentials: true`.
+- **SPA Fallback Test**: A request to `/.env` that returned HTTP 200 with `Content-Type: text/html` serving the single-page application index page.
+- **Source Map Test**: A bundle ending with `//# sourceMappingURL=index.js.map` where requesting the `.map` URL returned HTTP 403 Forbidden (`text/plain`, `Cache-Control: no-store`).
+
+### Scan Observations
+
+1. **Identified Exposures**:
+   - **Secrets Detected**: Flagged the fake credentials in client JavaScript while applying provider-specific regex patterns and entropy checks.
+   - **Git Metadata Detected**: Flagged reachable `.git` metadata after confirming internal structure (`ref: refs/` and `[core]` configuration).
+   - **CORS Detected**: Flagged the wildcard origin combined with credentialed access.
+2. **Accurate Non-Findings**:
+   - **SPA `.env` Fallback**: Correctly identified the HTTP 200 HTML document as an application index page rather than an environment file, reporting no `.env` exposure.
+   - **Protected Source Map**: Recorded HTTP 403 on the source map probe and reported the check as `passed`, avoiding a false alert for an inaccessible map.
+   - **Public Keys Ignored**: Intentionally public tokens (such as Stripe `pk_test_...` and Supabase anon JWTs) were recognized by the allowlist and omitted from findings.
+3. **Score Calculation**:
+   Running the current scoring function on these findings placed the target in the **Critical exposure** band (raw score under 30), driven by the presence of multiple critical secret exposures and high-severity Git metadata.
+
+---
+
+## 3. What is Checked & Pipeline Coverage
+
+LeakLens categorizes checks into implemented detectors and planned extensions defined in the shared coverage module (`packages/shared/src/check.ts`).
+
+### Check Registry & Status
+
+| Check ID              | Title                                            | Category      | Status in Engine                                                      |
+| :-------------------- | :----------------------------------------------- | :------------ | :-------------------------------------------------------------------- |
+| `LL-CHECK-KEYS`       | Secret and API keys exposed in public JavaScript | Secrets       | **Implemented**                                                       |
+| `LL-CHECK-ENV`        | Publicly reachable .env files                    | Configuration | **Implemented**                                                       |
+| `LL-CHECK-GIT`        | Publicly reachable .git repository metadata      | Configuration | **Implemented**                                                       |
+| `LL-CHECK-SOURCEMAPS` | Public production source maps                    | Configuration | **Implemented**                                                       |
+| `LL-CHECK-CORS`       | Overly permissive CORS settings                  | Network       | **Implemented**                                                       |
+| `LL-CHECK-SUPA-ANON`  | Supabase tables readable without login           | Database      | **Not yet supported** (reports `could_not_test` if Supabase detected) |
+| `LL-CHECK-SUPA-RLS`   | Missing row-level security on Supabase tables    | Database      | **Not yet supported** (reports `could_not_test` if Supabase detected) |
+| `LL-CHECK-STORAGE`    | Public storage buckets                           | Storage       | **Not yet supported** (reports `could_not_test`)                      |
+| `LL-CHECK-FIREBASE`   | Open Firebase database rules                     | Database      | **Not yet supported** (reports `could_not_test` if Firebase detected) |
+
+### Scanner Execution Pipeline
+
+The background worker pipeline (`apps/worker/src/pipeline/engine.ts`) executes five sequential stages:
+
+```
+┌────────────────────────────────────────────────────────────────────────┐
+│                        Scan Pipeline Stages                            │
+├────────────┬───────────────────────────────────────────────────────────┤
+│ Stage 0    │ Fetching app                                              │
+│            │ Fetches root URL, follows verified redirects, captures    │
+│            │ HTTP headers and initial HTML body.                       │
+├────────────┼───────────────────────────────────────────────────────────┤
+│ Stage 1    │ Reading bundle                                            │
+│            │ Discovers public script assets on verified hostname;      │
+│            │ downloads script bodies and extracts source map URLs.     │
+├────────────┼───────────────────────────────────────────────────────────┤
+│ Stage 2    │ Checking Supabase                                         │
+│            │ Passively identifies framework and provider signatures    │
+│            │ in DOM and asset text (React, Vite, Supabase, Firebase).  │
+├────────────┼───────────────────────────────────────────────────────────┤
+│ Stage 3    │ Checking storage                                          │
+│            │ Evaluates CORS preflight headers and runs registered      │
+│            │ detector modules against extracted context.               │
+├────────────┼───────────────────────────────────────────────────────────┤
+│ Stage 4    │ Building report                                           │
+│            │ Consolidates findings, executes scoring algorithm, and    │
+│            │ records check run results to database.                    │
+└────────────┴───────────────────────────────────────────────────────────┘
+```
+
+---
+
+## 4. Limitations & Exclusions
+
+LeakLens is a lightweight reconnaissance tool focused strictly on publicly accessible client-side exposures. **It does not perform penetration testing, exploit development, or comprehensive vulnerability assessments.**
+
+As defined in `packages/shared/src/check.ts` (`EXPLICIT_EXCLUSIONS`), LeakLens explicitly excludes:
+
+- Server, operating system, and network infrastructure vulnerabilities.
+- WordPress and third-party CMS plugin or theme vulnerabilities.
+- Malware identification or compromised system remediation.
+- Business logic flaws in application source code.
+- Protected endpoints requiring authentication or credentials.
+- Private code repository analysis.
+- Vulnerabilities within external third-party services.
+- Denial-of-service, load testing, and performance degradation checks.
+
+Every scan report includes the disclosure caption:
+
+> _"Based only on the checks listed. Not a full security audit."_
+
+---
+
+## 5. How the Engine Works
+
+### 5.1. Verification Engine
+
+To ensure scans target only authorized domains, LeakLens requires ownership verification before initiating probes (`packages/shared/src/verification.ts` and `apps/api/src/modules/verification`):
+
+- **Supported Verification Methods**:
+  1. **DNS TXT Record**: Probes `_leaklens.<domain>` for a TXT record containing `leaklens-verification=ll_<token>`.
+  2. **HTML Meta Tag**: Inspects the homepage HTML `<head>` for `<meta name="leaklens-verification" content="<token>" />`.
+  3. **Verification File**: Requests `/.well-known/leaklens.txt` expecting content `leaklens-verification=ll_<token>`.
+- **Public Suffix Rejection**: Uses the Mozilla Public Suffix List (`publicSuffix.ts`) to reject registrations of platform root domains (such as `vercel.app`, `netlify.app`, or `pages.dev`). Users must verify their distinct tenant subdomain or custom apex.
+- **30-Day Expiration**: Verifications expire 30 days after confirmation. The scan worker verifies domain expiration prior to executing jobs.
+
+### 5.2. Network Sandbox & SSRF Isolation
+
+All outbound HTTP requests from the scanner use a hardened networking layer (`packages/security`):
+
+- **SSRF Prevention (`network.ts`)**: Resolves DNS before socket creation and blocks private and sensitive ranges:
+  - Loopback (`127.0.0.0/8`, `::1`)
+  - Private subnets (`10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`)
+  - Cloud Instance Metadata Services (`169.254.169.254`)
+  - Shared CGNAT address spaces (`100.64.0.0/10`)
+  - IPv4-mapped IPv6 representations
+- **IP-Pinned Undici Dispatcher (`http.ts`)**: Prevents Time-of-Check to Time-of-Use (TOCTOU) DNS rebinding attacks by binding the connection socket directly to the validated IP address while preserving the original `Host` header and SNI for TLS negotiation.
+- **Scanner User-Agent**: Outbound requests declare identification:
   ```
-- Additionally, the developer enabled CORS on their edge functions with `origin: "*"` to resolve browser errors during prototyping.
+  User-Agent: LeakLensScanner/1.0 (+https://leaklens.com/about-scanner)
+  ```
 
-### How LeakLens Intervened
-1. **Verification**: The user verified ownership via an HTML meta tag (`<meta name="leaklens-site-verification" content="...">`). The Verification Engine confirmed subdomain ownership on `app.lovable.app` without permitting broad apex verification.
-2. **Network Sandbox**: LeakLens fetched the edge bundles using its IP-pinned Undici client with strict SSRF protection, ensuring no internal network interfaces or metadata services were touched.
-3. **Passive Detection**:
-   - `SecretsDetector` identified the active OpenAI secret key using high-precision regex with entropy thresholds, while verifying it was not an inert placeholder or public anonymous key.
-   - `CorsDetector` observed wildcard reflection with credentials.
-   - `SensitiveFilesDetector` confirmed that `/.env` safely routed to the SPA fallback (no false positive), but discovered a publicly accessible `.git/HEAD` reference.
-4. **Remediation**: LeakLens calculated an honest exposure score of **35/100 (Critical Exposure)** and generated an AI remediation prompt:
-   ```text
-   Refactor our OpenAI integration so that the client bundle never has access to the secret key.
-   Move the OpenAI API calls into a Supabase Edge Function under /supabase/functions/chat/index.ts.
-   Use the Deno environment variable OPENAI_API_KEY on the server side, and invoke the function
-   from our frontend using supabase.functions.invoke('chat'). Remove VITE_OPENAI_API_KEY from .env.
-   ```
-5. **Outcome**: The developer pasted the prompt directly into Lovable. Within 90 seconds, the secret was removed from the client build and migrated to a secure serverless edge function. A follow-up LeakLens rescan recorded a clean score of **100/100**.
+### 5.3. Detection Engine
 
----
+Detectors evaluate client-side assets using passive analysis:
 
-## 3. The Psychology Behind the UI & UX Design
+- **Secrets (`packages/detectors/src/secrets`)**: Matches patterns for OpenAI API keys, Stripe secret keys (`sk_live_...`, `sk_test_...`), GitHub personal access tokens (`ghp_...`, `github_pat_...`), AWS access keys (`AKIA...`, `ASIA...`), and private key blocks (`-----BEGIN PRIVATE KEY-----`). Harmless public identifiers (Stripe `pk_...`, Supabase anon JWTs, and Firebase web keys) are filtered out via `isKnownPublicKey`.
+- **Environment Files (`packages/detectors/src/sensitiveFiles/env.ts`)**: Probes `/.env`, `/.env.production`, and `/.env.local`. Checks for HTML doctypes or tags, verifies `KEY=VALUE` formatting, and extracts only variable names without recording values.
+- **Git Metadata (`packages/detectors/src/sensitiveFiles/git.ts`)**: Checks `/.git/HEAD` and `/.git/config`. Validates internal Git structures (`ref: refs/` or `[core]`). Probes for `/.git/index` to determine if object retrieval is possible, consolidating results into a single finding.
+- **Source Maps (`packages/detectors/src/sensitiveFiles/sourceMaps.ts`)**: Detects `//# sourceMappingURL=` directives. If referenced maps return HTTP 403 or 404, or do not contain valid source map JSON (`version`, `sources`, `mappings`), the check passes.
+- **CORS Configuration (`packages/detectors/src/cors`)**: Evaluates preflight responses and flags combinations of `Access-Control-Allow-Origin: *` with `Access-Control-Allow-Credentials: true`.
 
-The user interface of LeakLens is designed to depart radically from corporate security software:
+### 5.4. Scoring Algorithm
 
-```
-┌────────────────────────────────────────────────────────┐
-│                  Design Architecture                   │
-├────────────────────────────────────────────────────────┤
-│  Aesthetic: Swiss Brutalism + Editorial Precision      │
-│  Typography: Instrument Serif + JetBrains Mono + Inter │
-│  Palette: High-contrast Ink (#0e0e0e) & Paper (#f3f3f0)│
-│  Philosophy: Calm Guidance over Panic & Fear (FUD)     │
-└────────────────────────────────────────────────────────┘
-```
+The exposure score (`packages/shared/src/scoring.ts`) is computed deterministically on a 0–100 scale:
 
-### 1. The Anti-Fear Security Philosophy
-Traditional cybersecurity tools exploit fear, uncertainty, and doubt (FUD) through flashing red banners, animated sirens, and countdown timers. This triggers panic, leading developers to dismiss alerts or disable security tooling altogether. LeakLens employs an editorial, clinical aesthetic inspired by Swiss typography. Security reports resemble precise audit printouts, treating developers as intelligent peers rather than negligent adversaries.
+$$\text{Raw Score} = \text{round}\left(100 \times e^{-\frac{\text{totalWeight}}{25}}\right)$$
 
-### 2. Typographic Hierarchy & Visual Anchoring
-- **`Instrument Serif`**: Used exclusively for large numerical scores and screen titles. The classic editorial serif lends gravitas and dignity to security assessments.
-- **`JetBrains Mono`**: Used for technical artifacts, evidence strings, HTTP statuses, and timestamps. Monospaced clarity conveys precision and machine verification.
-- **`Inter`**: Used for prose explanations, step-by-step instructions, and rationale text, ensuring effortless readability.
+#### Severity Weights
 
-### 3. The Ambient Companion Guardian
-Floating unobtrusively in the workspace is the **LeakLens Companion**. Rather than an intrusive chatbot, the Companion functions as an ambient observer. Driven by a deterministic state machine and typed event bus (`companionEvents`), the Companion:
-- Calms the user during scans ("I watch the public edges. Quietly, mostly.").
-- Validates realistic risks without hyperbole.
-- Provides 1-click shortcut actions directly into the most critical finding.
+- **Critical**: 10
+- **High**: 5
+- **Medium**: 2
+- **Low**: 1
 
-### 4. Physicality & Spatial Motion
-Digital interfaces often feel ephemeral and untrustworthy. LeakLens incorporates spatial physics:
-- **3D Step Flip Book**: On the marketing page and onboarding flow, scan checks animate in a 3D perspective flip card stack with physical depth (`rotateX`, `rotateZ`, `translate3d`).
-- **Tactile Drawers**: Finding details slide out on a 620px inspection sheet with a subtle backdrop blur, allowing developers to inspect details without losing context of the overall score.
-- **Off-Canvas Mobile Drawer**: On mobile viewports, the desktop sidebar smoothly collapses into an off-canvas drawer with touch-friendly navigation, quick-access settings, and profile controls.
+#### Diminishing Returns
 
-### 5. Progressive Disclosure
-Findings are never dumped in an overwhelming raw log. Each finding exposes three progressive tiers of information:
-1. **Executive Insight**: What was discovered, where it lives, and the realistic threat vector.
-2. **Manual Engineering Remediation**: Step-by-step instructions for human engineers.
-3. **AI Copilot Patch**: A copy-paste prompt engineered for prompt-driven builders.
+Findings are grouped by `type`. Within each group, findings are sorted by severity:
 
----
+- The first finding of a given type contributes **100%** of its weight ($1.0 \times \text{weight}$).
+- The second and subsequent findings of the same type contribute **50%** of their weight ($0.5 \times \text{weight}$).
 
-## 4. Deep-Dive: How Each Engine Module Works
+#### Score Bounds & Properties
 
-```
- ┌─────────────────────────────────────────────────────────────────────────┐
- │                            LeakLens Pipeline                            │
- └────────────────────────────────────┬────────────────────────────────────┘
-                                      │
-                         [ 1. Domain Registration ]
-                                      ▼
-                        [ 2. Ownership Verification ]
-                        (DNS TXT / File / Meta Tag)
-                                      ▼
-                      [ 3. Pre-Scan Authorization Gate ]
-                                      ▼
-                   [ 4. Network Sandbox & SSRF Isolation ]
-                                      ▼
-                     [ 5. 5-Stage Live Scan Pipeline ]
-          ┌─────────────┬─────────────┼─────────────┬─────────────┐
-          ▼             ▼             ▼             ▼             ▼
-      Stage 0       Stage 1       Stage 2       Stage 3       Stage 4
-    Fetching App  Reading Bundle Checking DB  Checking S3   Building Report
-          │             │             │             │             │
-          └─────────────┴──────┬──────┴─────────────┴─────────────┘
-                               ▼
-                   [ 6. Finding Deduplication ]
-                     (Cryptographic Fingerprints)
-                               ▼
-                  [ 7. Honest Score Calculation ]
-                               ▼
-                 [ 8. AI Prompt Generation & KB ]
-```
+- **Minimum Score Floor**: If at least one check ran, the displayed score is capped at a minimum of **1** rather than 0.
+- **Incomplete Test Cap**: If any check could not run (status `could_not_test`), the maximum score is capped at **99**.
+- **Clean Score Condition**: A score of **100** requires that every implemented check ran and passed with zero findings.
 
-### 4.1. Verification Engine (`apps/api/src/modules/verification`)
+#### Score Bands & Labels
 
-Scanning unauthorized infrastructure is unethical and illegal. LeakLens enforces cryptographic proof of ownership before a single probe is fired.
+| Score Range  | Band       | UI Label                          |
+| :----------- | :--------- | :-------------------------------- |
+| **0 – 29**   | `critical` | Critical exposure                 |
+| **30 – 59**  | `high`     | High exposure                     |
+| **60 – 84**  | `moderate` | Moderate exposure                 |
+| **85 – 100** | `low`      | Low exposure in the checks we ran |
 
-- **Verification Methods**:
-  1. **DNS TXT Record**: Probes `_leaklens-challenge.<domain>` or apex for `leaklens-site-verification=<token>`.
-  2. **Well-Known Challenge File**: Requests `https://<domain>/.well-known/leaklens-challenge.txt` via HTTP and validates token match.
-  3. **HTML Meta Tag**: Parses HTML `<head>` for `<meta name="leaklens-site-verification" content="<token>">`.
-- **Public Suffix Rejection (`publicSuffix.ts`)**:
-  Multi-tenant hosting platforms (e.g., `vercel.app`, `netlify.app`, `github.io`, `lovable.app`, `pages.dev`, `railway.app`, `fly.dev`) host millions of distinct apps under shared apex domains. If a user could verify `vercel.app`, they could scan any competitor on Vercel. LeakLens matches domains against the Mozilla Public Suffix List (PSL). Verification of platform root domains is strictly rejected; users must verify their unique subdomain or custom domain.
-- **30-Day Expiry Gate**: Domain verifications expire exactly 30 days after issuance. The worker re-validates domain expiration inside the atomic job transaction. If ownership has lapsed, the scan aborts immediately.
+#### Worked Example
 
-### 4.2. Security Core & Network Sandbox (`packages/security`)
+Consider a scan resulting in:
 
-All outbound HTTP probes traverse a hardened security perimeter designed to defeat Server-Side Request Forgery (SSRF) and DNS rebinding:
+1. One critical OpenAI key exposure (`LL-SECRET-OPENAI`, weight = 10).
+2. One high-severity permissive CORS policy (`LL-CORS-001`, weight = 5).
 
-- **SSRF Isolation (`network.ts`)**:
-  Resolves DNS before connection and checks IP addresses against forbidden subnets:
-  - IPv4 Private Networks: `10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`
-  - Loopback: `127.0.0.0/8`, `::1`
-  - Cloud Provider Instance Metadata Service (IMDS): `169.254.169.254`
-  - Carrier-Grade NAT (CGNAT): `100.64.0.0/10`
-  - IPv4-Mapped IPv6 and alternative notations (decimal, octal, hex IP formats).
-- **Pinned-IP Undici Dispatcher (`http.ts`)**:
-  Standard HTTP clients suffer from Time-of-Check to Time-of-Use (TOCTOU) DNS rebinding: a domain resolves to a safe IP during validation, but points to `127.0.0.1` when the socket opens. LeakLens pins the socket connection directly to the validated IP address while preserving the `Host` header and SNI for TLS.
-- **Audit Compliance**: All scanner traffic carries an immutable, identification-compliant user agent: `LeakLensScanner/1.0 (+https://leaklens.com/about-scanner)`.
+Because the two findings belong to different types, both contribute full weight:
+$$\text{totalWeight} = 10 + 5 = 15$$
+$$\text{Raw Score} = \text{round}\left(100 \times e^{-\frac{15}{25}}\right) = \text{round}(100 \times e^{-0.6}) \approx \text{round}(54.88) = 55$$
 
-### 4.3. Detection Engine & Pipeline (`packages/detectors` & `apps/worker`)
+The resulting score is **55/100**, categorized in the **High exposure** band (`high`).
 
-The scanner pipeline executes in five coordinated stages:
+### 5.5. Differential Comparison & Fingerprinting
 
-1. **Stage 0: Fetching App**:
-   Fetches target landing pages, records HTTP status codes, headers, and redirects, and establishes baseline TLS properties.
-2. **Stage 1: Reading Bundle**:
-   Discovers client JavaScript and CSS bundles referenced in the DOM. Extracts scripts and scans for embedded API tokens:
-   - **Secrets Detector (`packages/detectors/src/secrets`)**: Evaluates regex signatures and Shannon entropy for OpenAI, Stripe (`sk_live_`), GitHub, AWS, and private keys. Explicitly ignores harmless public identifiers (Stripe `pk_`, Supabase anonymous keys, Firebase public config).
-3. **Stage 2: Checking Supabase / Databases**:
-   Inspects exposed database URLs, evaluates PostgREST public schema exposure, and tests table accessibility.
-4. **Stage 3: Checking Storage**:
-   Probes public cloud storage buckets (AWS S3, Google Cloud Storage, Supabase Storage) linked from assets.
-5. **Stage 4: Building Report**:
-   Tests for reachable `.env` files (distinguishing true key-value pairs from SPA HTML fallbacks) and public `.git` directories. Aggregates findings and synthesizes the score.
+Rescans track changes between successive assessments (`packages/shared/src/fingerprint.ts` and `comparison.ts`):
 
-### 4.4. Scoring & Differential Comparison Engine (`packages/shared`)
+- **Fingerprint Inputs**: Each finding generates a SHA-256 hash derived from:
+  1. Normalized hostname (lowercase, stripped protocol and port).
+  2. Finding type (e.g., `LL-SECRET-OPENAI`, `LL-FILE-GIT`).
+  3. Normalized location (asset build hashes like `index-Bs6Dobp1.js` stripped to `index.js`, query string parameters sorted alphabetically).
+  4. Secret preview info (masked prefix and trailing 4 characters; never raw secret values).
+- **Comparison Classifications**:
+  - **Unchanged**: Finding fingerprint present in both scans.
+  - **New**: Finding fingerprint present only in the later scan.
+  - **Resolved**: Finding present in the earlier scan, absent in the later scan, **and** the corresponding check ran successfully in the later scan.
+  - **Not tested in this scan**: Finding present in the earlier scan, absent in the later scan, but the corresponding check failed to run (status `could_not_test`). This avoids falsely marking issues as resolved when a probe times out.
 
-- **Honest Score Algorithm (`scoring.ts`)**:
-  Scores are calibrated on a strict 0–100 scale:
-  $$\text{Score} = \max(0, 100 - \sum \text{Deductions})$$
-  - Critical Finding (Active Secret Key, Open Database): -35 pts
-  - High Finding (Public `.git`, Permissive CORS): -20 pts
-  - Medium Finding: -10 pts
-  - Low Finding: -5 pts
-  - Score Bands: **Good** (85–100), **Fair** (60–84), **Needs Attention** (0–59).
-- **Stable Cryptographic Fingerprinting (`fingerprint.ts`)**:
-  Every finding generates an immutable SHA-256 fingerprint from its detector ID, normalized location, and issue type:
-  $$\text{Fingerprint} = \text{SHA256}(\text{detectorId} + ":" + \text{location} + ":" + \text{type})$$
-  This guarantees that rescans track whether a specific finding is **Fixed**, **Persisting**, or **New**, powering real-time score delta comparisons (`+15`, `-20`).
+### 5.6. Worker Queue & Database Connections
 
-### 4.5. Worker Queue & Execution Strategy (`apps/worker`)
+- **Job Queue (`apps/worker/src/queue.ts`)**: Background scan tasks are managed via `pg-boss` backed by PostgreSQL.
+- **Connection Handling & SSL**:
+  When connecting to managed database poolers (such as Supabase Transaction Poolers), the worker strips `sslmode` query parameters and passes `ssl: { rejectUnauthorized: false }`. Note that this explicitly disables TLS certificate verification on the worker database connection.
 
-- **Asynchronous Execution via PgBoss**: Background scan jobs are managed through `pg-boss` on PostgreSQL.
-- **SSL Certificate Chain Handling**: Automatically strips incompatible `sslmode` query flags when connecting to managed poolers (such as Supabase Transaction Poolers) and applies secure programmatic SSL configurations, preventing `SELF_SIGNED_CERT_IN_CHAIN` connection failures.
-- **Dual-Execution Resilience**: If the worker queue is offline or initializing, the API service seamlessly falls back to direct background thread processing (`processScanJob`), guaranteeing scans never hang.
+### 5.7. Knowledge Base & Remediation Prompts
 
-### 4.6. Knowledge Base & AI Prompt Generator (`packages/kb`)
+The knowledge base (`packages/kb`) maps findings to actionable remediation material:
 
-Security reports are only as useful as the fixes they produce. LeakLens maintains a curated knowledge base (`generator.ts`) containing:
-- Exact threat vectors and realistic exploit descriptions.
-- Manual verification and remediation instructions.
-- Tailored AI prompts configured for Lovable, Bolt.new, Cursor, v0, and Windsurf, enabling developers to remediate vulnerabilities with zero context switching.
-
-### 4.7. Authentication & Identity Scoping (`apps/api`)
-
-- **Supabase Authentication**: Integrated via JWT verification in the API gateway.
-- **Verified Email Requirement**: Scans cannot be executed unless the account's email address has been verified.
-- **Strict Tenant Isolation**: Users can only inspect, scan, or delete domains associated with their specific `userId`.
-- **Custom Modals**: No browser-native `window.confirm()` or `window.alert()` popups. Account deletion and domain removal utilize custom modal dialogs that cascade deletes across all related check runs, findings, and metrics.
+- Plain-English descriptions of realistic consequences.
+- Step-by-step engineering checklists.
+- Parameterized prompts formatted for AI coding tools (Lovable, Bolt.new, Cursor, v0), instructing agents to migrate client-side secrets into serverless edge functions or environment configurations.
 
 ---
 
-## 5. Monorepo Architecture
+## 6. Design & User Experience
+
+LeakLens features an editorial, high-contrast design language avoiding fear-based alert styling. For an in-depth breakdown of typographic hierarchy, spatial motion, progressive disclosure, and the companion state machine, see [docs/design.md](docs/design.md).
+
+---
+
+## 7. Monorepo Architecture
 
 ```
 LeakLens/
 ├── apps/
-│   ├── web/               # React 19, Vite 8, Tailwind CSS v4, Lucide icons
+│   ├── web/               # React 19 single-page dashboard application
 │   │   ├── src/
-│   │   │   ├── components/# Modular UI: Drawers, Modals, Topbar, Companion
-│   │   │   ├── views/     # LoggedInApp, LandingPage, AuthView
-│   │   │   └── lib/api/   # HTTP Adapter, Mock Adapter, Type definitions
+│   │   │   ├── components/# UI components (Drawers, Modals, Topbar, Companion)
+│   │   │   ├── views/     # LoggedInApp, MarketingView, AuthScreen
+│   │   │   └── lib/api/   # HTTP and mock API adapters
 │   │   └── index.html
-│   ├── api/               # Express REST backend service
-│   │   ├── prisma/        # PostgreSQL schema, migrations, and clients
+│   ├── api/               # Express REST API service
+│   │   ├── prisma/        # PostgreSQL Prisma schema and migrations
 │   │   └── src/
-│   │       ├── routes/    # Scans, Domains, Verification, Findings
-│   │       └── modules/   # Verification engine, DNS resolver, PSL
+│   │       ├── routes/    # Scans, Domains, Verification endpoints
+│   │       └── modules/   # Domain verification, DNS resolver, PSL validation
 │   └── worker/            # Background scan runner
 │       └── src/
-│           ├── pipeline/  # 5-stage scan engine
-│           └── queue.ts   # PgBoss job consumer & SSL handler
-└── packages/
-    ├── shared/            # Common scoring, comparison, and fingerprinting
-    ├── security/          # SSRF prevention, pinned Undici client, masking
-    ├── detectors/         # Pluggable vulnerability detector modules
-    └── kb/                # Remediation knowledge base and AI prompt engine
+│           ├── pipeline/  # 5-stage scan orchestration engine
+│           └── queue.ts   # pg-boss consumer and connection management
+├── packages/
+│   ├── shared/            # Pure scoring, fingerprinting, comparison, and schemas
+│   ├── security/          # Pinned-IP Undici client, SSRF guard, secret masking
+│   ├── detectors/         # Secret, CORS, .git, .env, and source map detectors
+│   └── kb/                # Remediation knowledge base and AI prompt templates
+└── docs/
+    └── design.md          # UI/UX design rationale and typography details
 ```
 
 ---
 
-## 6. Room for Scaling & System Roadmap
-
-LeakLens is architected to scale horizontally. Potential expansion vectors include:
-
-```
-┌────────────────────────────────────────────────────────┐
-│                    Scaling Roadmap                     │
-├────────────────────────────────────────────────────────┤
-│  1. Distributed Multi-Region Scanner Agents (US/EU/AP) │
-│  2. Headless Browser (Chromium) DOM Execution          │
-│  3. CI/CD & Deploy Webhook Integrations                │
-│  4. Real-time RLS Deep Simulation Probes               │
-│  5. Team Workspaces & Automated Weekly Drift Scans     │
-└────────────────────────────────────────────────────────┘
-```
-
-1. **Distributed Multi-Region Workers**: Deploying worker agents across multiple AWS/GCP regions to detect geo-restricted CORS policies and CDN-specific asset leaks.
-2. **Headless Browser Execution (Chromium via Playwright)**: Integrating lightweight headless browsers to dynamically execute complex single-page apps with heavy runtime code-splitting.
-3. **CI/CD & GitHub Actions Integration**: A lightweight CLI and GitHub Action that fails pull requests if AI code generation commits a secret key into client bundles.
-4. **Deep Row Level Security (RLS) Probing**: Automated non-destructive probes that query Supabase/PostgREST schema endpoints to verify whether tables have RLS enabled with active policies.
-5. **Scheduled Drift Monitoring**: Automated background cron rescans that notify developers via webhooks or email when a deployment introduces security regressions.
-
----
-
-## 7. Installation, Setup & Testing
+## 8. Installation & Setup
 
 ### Prerequisites
+
 - **Node.js**: v20 or v22 LTS
 - **pnpm**: v10+
 - **PostgreSQL**: Local instance or Supabase database
 
-### Installation
+### 1. Clone & Install
+
 ```bash
-# Clone the repository
 git clone https://github.com/richkid2xi/LeakLense.git
 cd LeakLense
-
-# Install all workspace dependencies
 pnpm install
 ```
 
-### Environment Configuration
+### 2. Configure Environment
+
 ```bash
 cp .env.example .env
-cp apps/web/.env.example apps/web/.env
-cp apps/api/.env.example apps/api/.env
-cp apps/worker/.env.example apps/worker/.env
 ```
 
-### Database Migrations
+Update `.env` with your PostgreSQL database credentials (`DATABASE_URL`, `DIRECT_URL`) and Supabase authentication keys (`SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`).
+
+### 3. Initialize Database
+
 ```bash
-# Generate Prisma Client
+# Generate Prisma client
 pnpm --filter @leaklens/api prisma:generate
 
-# Apply Database Schema
+# Push schema to database
 pnpm --filter @leaklens/api prisma db push
 ```
 
-### Running Services
+### 4. Run Development Servers
+
 ```bash
-# Run web client, API server, and worker concurrently:
+# Run all workspace applications concurrently:
 pnpm dev:all
 
-# Or run individual services:
-pnpm dev        # Web Client (http://localhost:8443)
-pnpm dev:api    # REST API (http://localhost:3001)
+# Or run individual applications:
+pnpm dev        # Web Client (Vite)
+pnpm dev:api    # Express REST API
 pnpm dev:worker # Scan Worker
-```
-
-### Running the Test Suite
-All 158 automated tests run completely in isolation without requiring live network access:
-```bash
-# Run all tests across the entire monorepo
-pnpm test
-
-# Run tests with type checking
-pnpm typecheck
 ```
 
 ---
 
-## License
+## 9. Running Tests
 
-LeakLens is distributed under the [MIT License](file:///c:/Users/richa/OneDrive/Desktop/Projects/LeakLens/LICENSE). Built for developers and founders embracing the future of AI-accelerated software creation.
+The test suite runs locally using Vitest without requiring active network connectivity:
+
+```bash
+# Run all unit and integration tests across packages and apps
+pnpm test
+
+# Run TypeScript typechecks across all workspace packages
+pnpm typecheck
+
+# Run linter
+pnpm lint
+```
+
+---
+
+## 10. Security & Responsible Use
+
+1. **Ownership Verification Required**: Scans cannot be executed against any target without completing cryptographic DNS TXT, HTML meta tag, or file challenge verification.
+2. **Read-Only Inspection**: Probes are restricted to passive HTTP `GET` and `OPTIONS` requests against public endpoints. LeakLens does not inject payloads, execute fuzzing, or attempt credential brute-forcing.
+3. **SSRF Hardened**: Scanner traffic is bounded by IP pinning and subnet restrictions to ensure probes cannot access local or internal network interfaces.
+
+---
+
+## 11. Roadmap
+
+The following capabilities represent potential future enhancements:
+
+- **Headless Browser Execution**: Incorporating headless Chromium to execute single-page applications with dynamic runtime code-splitting.
+- **Active Supabase RLS Probing**: Probing PostgREST endpoints to verify whether discovered tables enforce row-level security policies.
+- **Storage Bucket Inspection**: Verifying public read access on cloud storage bucket references discovered in assets.
+- **CI/CD Integration**: A CLI tool or GitHub Action to flag accidental client-side secret inlining during pull request validation.
+- **Scheduled Monitoring**: Periodic automated rescans to identify exposure regressions between deployments.
+
+---
+
+## 12. License
+
+LeakLens is distributed under the [MIT License](LICENSE).
