@@ -81,7 +81,7 @@ export const CreateScanInputSchema = z.object({
   authorized: z.literal(true, {
     errorMap: () => ({ message: "You must confirm you own this site, or are authorised to scan it." }),
   }),
-  builderHint: z.enum(["Lovable", "Bolt", "Cursor", "v0", "Other"]).optional(),
+  builderHint: z.string().optional(),
   selectedChecks: z.array(z.string()).optional(),
 });
 

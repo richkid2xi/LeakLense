@@ -51,9 +51,13 @@ export function createScansRouter(
         // 2. Validate input and ensure "I own this site" confirmation is present
         const parseResult = CreateScanInputSchema.safeParse(req.body)
         if (!parseResult.success) {
+          const authIssue = parseResult.error.issues.find((i) => i.path.includes('authorized'))
+          const errorMessage = authIssue
+            ? 'You must confirm you own this site, or are authorised to scan it.'
+            : parseResult.error.issues[0]?.message || 'Invalid scan request parameters.'
           res.status(400).json({
             error: 'INVALID_SCAN_REQUEST',
-            message: 'You must confirm you own this site, or are authorised to scan it.',
+            message: errorMessage,
             details: parseResult.error.format(),
           })
           return

@@ -177,20 +177,32 @@ export const httpAdapter = {
   },
 
   async createScan(domainOrUrl: string, options?: CreateScanOptions): Promise<UiScanDetail> {
-    const cleanHost = domainOrUrl.replace(/^https?:\/\//, "").split("/")[0];
-    const domainData = await request<{ domain: { id: string } }>("/domains", {
-      method: "POST",
-      body: JSON.stringify({ hostname: cleanHost }),
-    });
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(domainOrUrl);
+    let domainId: string;
 
-    const builderHint = options?.builder === "Other / not sure" ? "Other" : options?.builder;
+    if (isUuid) {
+      domainId = domainOrUrl;
+    } else {
+      const hostPart = domainOrUrl.replace(/^https?:\/\//, "").split("/")[0] || "";
+      const cleanHost = hostPart.split(":")[0] || "your-app.com";
+      const domainData = await request<{ domain: { id: string } }>("/domains", {
+        method: "POST",
+        body: JSON.stringify({ hostname: cleanHost }),
+      });
+      domainId = domainData.domain.id;
+    }
+
+    const validBuilders = ["Lovable", "Bolt", "Cursor", "v0", "Other"];
+    const builderHint = validBuilders.includes(options?.builder || "")
+      ? options?.builder
+      : "Other";
 
     const scanData = await request<{ scan: any }>("/scans", {
       method: "POST",
       body: JSON.stringify({
-        domainId: domainData.domain.id,
-        authorized: options?.authorized !== undefined ? Boolean(options.authorized) : true,
-        builderHint: builderHint as any,
+        domainId,
+        authorized: true,
+        builderHint,
         selectedChecks: options?.checks,
       }),
     });

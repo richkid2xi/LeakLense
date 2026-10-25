@@ -560,14 +560,19 @@ export function LoggedInApp({
     try {
       setIsRescanningFromCompare(true);
       setUrl(targetDomain.hostname);
+      setAuthorized(true);
       setScanLoading(true);
       nav("progress");
       companionEvents.emit("scan_started", { url: targetDomain.hostname, builder });
-      const created = await api.createScan(targetDomain.hostname, { authorized: true });
+      const created = await api.createScan(targetDomain.id, { authorized: true, builder: "Other" });
       setActiveScanId(created.id);
       trackScanProgress(created.id);
     } catch (err: any) {
-      setActionMessage(err.message || "Failed to start rescan.");
+      setScanLoading(false);
+      nav("compare");
+      const msg = err?.message || "Failed to start rescan.";
+      setActionMessage(msg);
+      showToast(msg, "error");
     } finally {
       setIsRescanningFromCompare(false);
     }
@@ -762,13 +767,14 @@ export function LoggedInApp({
 
     try {
       setUrl(domain.hostname);
+      setAuthorized(true);
       setScanLoading(true);
       nav("progress");
       companionEvents.emit("scan_started", { url: domain.hostname, builder });
 
-      const created = await api.createScan(domain.hostname, {
+      const created = await api.createScan(domain.id, {
         authorized: true,
-        builder: builder === "Other / not sure" ? "Other" : (builder as any),
+        builder: "Other",
       });
 
       setActiveScanId(created.id);
@@ -788,6 +794,7 @@ export function LoggedInApp({
     } catch (err: any) {
       setScanLoading(false);
       setRescanLoading((prev) => ({ ...prev, [domain.id]: false }));
+      nav("apps");
       if (err?.status === 429 || err?.retryAfter) {
         const waitSec = err.retryAfter ? `${err.retryAfter}s` : "a few moments";
         const msg = `Rate limit exceeded. Try again in ${waitSec}.`;
