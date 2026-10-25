@@ -1,5 +1,7 @@
 import {
   DEFAULT_SCAN_LIMITS,
+  computeExposureScore,
+  SCORE_VERSION,
   type CheckResult,
   type Finding,
   type ScanEngineResult,
@@ -165,19 +167,9 @@ export async function runScan(
     }
   }
 
-  // 7. Calculate exposure score
-  const severityPenalties: Record<string, number> = {
-    critical: 25,
-    high: 15,
-    medium: 10,
-    low: 5,
-  }
-
-  const penalty = findings.reduce(
-    (total, finding) => total + (severityPenalties[finding.severity] ?? 5),
-    0,
-  )
-  const exposureScore = Math.max(0, 100 - penalty)
+  // 7. Calculate exposure score using pure computeExposureScore
+  const scoreResult = computeExposureScore(findings, checks)
+  const exposureScore = scoreResult.score
 
   return {
     target: page.url,
@@ -185,6 +177,7 @@ export async function runScan(
     checks,
     findings,
     exposureScore,
+    scoreVersion: SCORE_VERSION,
     startedAt,
     completedAt: new Date().toISOString(),
     metrics: {

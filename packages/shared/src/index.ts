@@ -10,3 +10,4 @@ export * from "./plan";
 export * from "./sha256";
 export * from "./fingerprint";
 export * from "./comparison";
+export * from "./scoring";

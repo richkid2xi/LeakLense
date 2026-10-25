@@ -1,14 +1,8 @@
 import type { Finding } from './finding'
-import type { CheckResult, CheckRun } from './check'
 import { computeFindingFingerprint, normalizeHostname } from './fingerprint'
+import type { CheckLike } from './scoring'
 
-export type CheckLike = CheckResult | CheckRun | {
-  id?: string
-  checkId?: string
-  title?: string
-  status: string
-  reason?: string | null
-}
+export type { CheckLike }
 
 export interface FindingComparisonItem {
   fingerprint: string

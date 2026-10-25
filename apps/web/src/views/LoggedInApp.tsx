@@ -3,6 +3,7 @@ import * as api from "../lib/api";
 import type { FindingStatus, RescanComparison, UiFinding as Finding, UiScanSummary, UiDomain } from "../lib/api";
 import { companionEvents, SeverityLevel } from "../lib/companion/events";
 import { BRAND, checks } from "../constants/marketing";
+import { getScoreBand, SCORE_CAPTION } from "@leaklens/shared";
 import { Arrow, MaterialIcon } from "../components/common/MaterialIcon";
 import { MicroLabel } from "../components/common/MicroLabel";
 import { CopyBlock } from "../components/common/CopyBlock";
@@ -733,15 +734,14 @@ export function LoggedInApp({
                       <sup>/100</sup>
                     </h1>
                     <p>
-                      {securityScore === 100
-                        ? "Clean report — zero exposures detected"
-                        : securityScore >= 80
-                          ? "Low exposure risk"
-                          : securityScore >= 50
-                            ? "Needs attention"
-                            : "High exposure risk"}
+                      {getScoreBand(securityScore).label}
+                      {checksRun.some(([, status]) => status.toLowerCase().replace(/['\s_-]/g, "") === "couldnottest") && (
+                        <span className="not-fully-tested" style={{ marginLeft: 8, fontSize: "0.85em", opacity: 0.85 }}>
+                          · not fully tested
+                        </span>
+                      )}
                     </p>
-                    <small>Based only on the checks listed below. Not a full security audit.</small>
+                    <small>{SCORE_CAPTION}</small>
                     {findings.some((f) => f.severity === "Critical") && (
                       <button
                         className="review-critical"
@@ -904,6 +904,11 @@ export function LoggedInApp({
                     <MicroLabel>BEFORE / {(comparison?.beforeDate || "BASELINE").toUpperCase()}</MicroLabel>
                     <strong>{comparison?.beforeScore ?? "—"}</strong>
                     <span>/100</span>
+                    {comparison?.beforeScore !== undefined && (
+                      <small className="score-band-sub" style={{ display: "block", fontSize: "0.8rem", color: "var(--text-muted)", marginTop: 4 }}>
+                        {getScoreBand(comparison.beforeScore).label}
+                      </small>
+                    )}
                   </div>
                   <i>
                     <MaterialIcon>arrow_forward</MaterialIcon>
@@ -912,6 +917,9 @@ export function LoggedInApp({
                     <MicroLabel>AFTER / {(comparison?.afterDate || "LATEST").toUpperCase()}</MicroLabel>
                     <strong>{comparison?.afterScore ?? securityScore}</strong>
                     <span>/100</span>
+                    <small className="score-band-sub" style={{ display: "block", fontSize: "0.8rem", color: "var(--text-muted)", marginTop: 4 }}>
+                      {getScoreBand(comparison?.afterScore ?? securityScore).label}
+                    </small>
                   </div>
                 </div>
                 <div className="compare-grid">

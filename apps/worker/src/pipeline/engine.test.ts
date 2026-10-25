@@ -86,8 +86,9 @@ describe('scan pipeline engine', () => {
     const sourcemapFinding = result.findings.find(f => f.type === 'LL-FILE-SOURCEMAP')
     expect(sourcemapFinding).toBeDefined()
 
-    // Exposure score: base 100 - (critical 25 + medium 10) = 65
-    expect(result.exposureScore).toBe(65)
+    // Exposure score: computeExposureScore with critical (weight 10) + medium (weight 2) = round(100 * exp(-12/25)) = 62
+    expect(result.exposureScore).toBe(62)
+    expect((result as any).scoreVersion).toBe('1.0.0')
 
     // Checks run
     expect(result.checks.length).toBeGreaterThan(0)
