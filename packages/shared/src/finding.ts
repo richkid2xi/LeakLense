@@ -20,6 +20,7 @@ export const FindingSchema = z.object({
   id: z.string(),
   scanId: z.string().optional(),
   type: z.string().min(1), // Rule identifier, e.g. "LL-SECRET-OPENAI", "LL-KEY-001"
+  fingerprint: z.string().optional(),
   ruleVersion: z.string().default("1.0.0").optional(),
   severity: FindingSeveritySchema,
   confidence: FindingConfidenceSchema.default("high").optional(),

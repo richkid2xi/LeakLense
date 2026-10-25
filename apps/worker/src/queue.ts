@@ -1,5 +1,6 @@
 import PgBoss from 'pg-boss'
 import { PrismaClient } from '@prisma/client'
+import { computeFindingFingerprint } from '@leaklens/shared'
 import { runScan as defaultRunScan } from './pipeline/engine'
 
 export const RUN_SCAN_JOB = 'run-scan'
@@ -106,10 +107,15 @@ export async function processScanJob(
 
     // 5. Persist findings (strictly masked evidence only)
     for (const finding of result.findings) {
+      const fingerprint =
+        (finding as any).fingerprint ||
+        computeFindingFingerprint(verifiedHostname, finding)
+
       await prisma.finding.create({
         data: {
           scanId,
           type: finding.type,
+          fingerprint,
           severity: finding.severity,
           status: finding.status,
           location: finding.location,
@@ -133,6 +139,7 @@ export async function processScanJob(
         finishedAt: new Date(),
         detectedStack: result.detectedStack,
         exposureScore: result.exposureScore,
+        scoreVersion: (result as any).scoreVersion || '1.0.0',
         metrics: result.metrics,
       },
     })

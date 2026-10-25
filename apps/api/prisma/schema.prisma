@@ -76,6 +76,7 @@ model Scan {
   finishedAt    DateTime?
   detectedStack Json           @default("[]") // string[]
   exposureScore Int?           // 0 - 100 exposure score based on checks run
+  scoreVersion  String?        @default("1.0.0")
   errorMessage  String?
   metrics       Json?          // { assetsFetched, bytesRead, requestsMade }
   createdAt     DateTime       @default(now())
@@ -110,6 +111,7 @@ model Finding {
   id                String        @id @default(uuid())
   scanId            String
   type              String        // e.g., "LL-SECRET-OPENAI", "LL-KEY-001"
+  fingerprint       String?       // Stable finding fingerprint hash
   severity          String        // "critical" | "high" | "medium" | "low"
   status            String        @default("open") // "open" | "fixed" | "ignored"
   location          String
@@ -127,6 +129,7 @@ model Finding {
   scan              Scan          @relation(fields: [scanId], references: [id], onDelete: Cascade)
 
   @@index([scanId])
+  @@index([fingerprint])
   @@index([status])
   @@index([severity])
   @@map("findings")

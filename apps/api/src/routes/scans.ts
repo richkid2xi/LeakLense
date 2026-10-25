@@ -1,6 +1,7 @@
 import { Router, type Request, type Response, type NextFunction } from 'express'
+import { z } from 'zod'
 import type { PrismaClient } from '@prisma/client'
-import { CreateScanInputSchema } from '@leaklens/shared'
+import { CreateScanInputSchema, compareScans } from '@leaklens/shared'
 import { getPrismaClient } from '../db'
 import { recordAuditLog } from '../modules/audit'
 import { assertDomainScanEligible, VerificationError } from '../modules/verification'
@@ -143,14 +144,136 @@ export function createScansRouter(
   )
 
   /**
+  /**
    * GET /scans/compare
-   * Compares the latest scan with the previous scan for the user or a given domain.
+   * Compares two scans using stable fingerprint classification.
+   * Query params:
+   * - before=<id>&after=<id> (explicit comparison, validated with Zod)
+   * - Or legacy: domainId / scanId
+   *
+   * Owner-scoped: authenticated user must own the domain.
    */
   router.get(
     '/scans/compare',
     async (req: Request, res: Response, next: NextFunction): Promise<void> => {
       try {
         const userId = req.user!.id
+
+        // 1. Explicit comparison mode with ?before=<id>&after=<id>
+        if (req.query.before || req.query.after) {
+          const querySchema = z.object({
+            before: z.string().uuid({ message: 'Invalid before scan ID' }),
+            after: z.string().uuid({ message: 'Invalid after scan ID' }),
+          })
+
+          const parseResult = querySchema.safeParse(req.query)
+          if (!parseResult.success) {
+            res.status(400).json({
+              error: 'INVALID_QUERY',
+              message: 'Valid before and after scan UUIDs are required.',
+              details: parseResult.error.format(),
+            })
+            return
+          }
+
+          const { before, after } = parseResult.data
+
+          const [beforeScan, afterScan] = await Promise.all([
+            prisma.scan.findUnique({
+              where: { id: before },
+              include: { domain: true, findings: true, checkRuns: true },
+            }),
+            prisma.scan.findUnique({
+              where: { id: after },
+              include: { domain: true, findings: true, checkRuns: true },
+            }),
+          ])
+
+          if (!beforeScan || !afterScan) {
+            res.status(404).json({
+              error: 'SCAN_NOT_FOUND',
+              message: 'One or both scans could not be found.',
+            })
+            return
+          }
+
+          // Owner-scoping: user can only view scans for domains they own
+          if (beforeScan.domain.userId !== userId || afterScan.domain.userId !== userId) {
+            res.status(403).json({
+              error: 'FORBIDDEN',
+              message: 'You are not authorized to view these scans.',
+            })
+            return
+          }
+
+          // Both scans must belong to the same domain
+          if (beforeScan.domainId !== afterScan.domainId) {
+            res.status(400).json({
+              error: 'DOMAIN_MISMATCH',
+              message: 'Both scans must belong to the same domain.',
+            })
+            return
+          }
+
+          const comparison = compareScans(
+            beforeScan.domain.hostname,
+            { findings: beforeScan.findings as any, checks: beforeScan.checkRuns },
+            { findings: afterScan.findings as any, checks: afterScan.checkRuns },
+          )
+
+          const beforeScore = beforeScan.exposureScore ?? 100
+          const afterScore = afterScan.exposureScore ?? 100
+          const deltaScore = afterScore - beforeScore
+
+          const beforeDate = beforeScan.finishedAt || beforeScan.createdAt
+          const formattedBeforeDate = new Date(beforeDate).toLocaleDateString('en-US', {
+            month: 'short',
+            day: 'numeric',
+          })
+          const afterDate = afterScan.finishedAt || afterScan.createdAt
+          const formattedAfterDate = new Date(afterDate).toLocaleDateString('en-US', {
+            month: 'short',
+            day: 'numeric',
+          })
+
+          let headline = 'Exposure score unchanged.'
+          if (deltaScore > 0) {
+            headline = 'Fewer exposures than previous scan.'
+          } else if (deltaScore < 0) {
+            headline = 'More exposures than previous scan.'
+          } else if (afterScore === 100 && beforeScore === 100) {
+            headline = 'Clean report maintained.'
+          }
+
+          res.status(200).json({
+            beforeScanId: beforeScan.id,
+            afterScanId: afterScan.id,
+            beforeScore,
+            afterScore,
+            deltaScore,
+            counts: comparison.counts,
+            resolved: comparison.resolved.map((item) => item.finding),
+            newFindings: comparison.newFindings.map((item) => item.finding),
+            new: comparison.newFindings.map((item) => item.finding),
+            unchanged: comparison.unchanged.map((item) => item.finding),
+            notTested: comparison.notTested.map((item) => item.finding),
+            comparison: {
+              beforeDate: formattedBeforeDate,
+              beforeScore,
+              afterDate: formattedAfterDate,
+              afterScore,
+              resolvedCount: comparison.counts.resolved,
+              newCount: comparison.counts.new,
+              unchangedCount: comparison.counts.unchanged,
+              notTestedCount: comparison.counts.notTested,
+              deltaScore,
+              headline,
+            },
+          })
+          return
+        }
+
+        // 2. Legacy fallback
         const domainId = req.query.domainId as string | undefined
         const scanId = req.query.scanId as string | undefined
 
@@ -164,6 +287,7 @@ export function createScansRouter(
           orderBy: { createdAt: 'desc' },
           include: {
             findings: true,
+            checkRuns: true,
             domain: { select: { hostname: true } },
           },
           take: 5,
@@ -193,7 +317,7 @@ export function createScansRouter(
         }
 
         const beforeScan = userScans.find(
-          (s) => s.id !== afterScan.id && s.domainId === afterScan.domainId && s.status === 'completed'
+          (s) => s.id !== afterScan.id && s.domainId === afterScan.domainId && s.status === 'completed',
         )
 
         const afterDate = afterScan.finishedAt || afterScan.createdAt
@@ -233,44 +357,43 @@ export function createScansRouter(
         })
         const beforeScore = beforeScan.exposureScore ?? (beforeScan.findings.length === 0 ? 100 : 80)
 
-        const beforeFindingKeys = new Set(beforeScan.findings.map((f) => `${f.type}::${f.location}`))
-        const afterFindingKeys = new Set(afterScan.findings.map((f) => `${f.type}::${f.location}`))
+        const comparison = compareScans(
+          afterScan.domain.hostname,
+          { findings: beforeScan.findings as any, checks: beforeScan.checkRuns },
+          { findings: afterScan.findings as any, checks: afterScan.checkRuns },
+        )
 
-        const resolved = beforeScan.findings.filter((f) => !afterFindingKeys.has(`${f.type}::${f.location}`))
-        const newFindings = afterScan.findings.filter((f) => !beforeFindingKeys.has(`${f.type}::${f.location}`))
-
-        const resolvedCount = resolved.length
-        const newCount = newFindings.length
-
-        const resolvedSummary =
-          resolvedCount > 0
-            ? resolved.map((f) => f.title).slice(0, 3).join(', ') + (resolvedCount > 3 ? ` and ${resolvedCount - 3} more.` : '.')
-            : 'No resolved findings since the previous scan.'
-
-        const newSummary =
-          newCount > 0
-            ? newFindings.map((f) => f.title).slice(0, 3).join(', ') + (newCount > 3 ? ` and ${newCount - 3} more.` : '.')
-            : 'No new exposures detected in this rescan.'
-
+        const deltaScore = afterScore - beforeScore
         let headline = 'Exposure score unchanged.'
-        if (afterScore > beforeScore) {
+        if (deltaScore > 0) {
           headline = 'Fewer exposures than previous scan.'
-        } else if (afterScore < beforeScore) {
+        } else if (deltaScore < 0) {
           headline = 'More exposures than previous scan.'
         } else if (afterScore === 100 && beforeScore === 100) {
           headline = 'Clean report maintained.'
         }
 
         res.status(200).json({
+          beforeScanId: beforeScan.id,
+          afterScanId: afterScan.id,
+          beforeScore,
+          afterScore,
+          deltaScore,
+          counts: comparison.counts,
+          resolved: comparison.resolved.map((item) => item.finding),
+          newFindings: comparison.newFindings.map((item) => item.finding),
+          new: comparison.newFindings.map((item) => item.finding),
+          unchanged: comparison.unchanged.map((item) => item.finding),
+          notTested: comparison.notTested.map((item) => item.finding),
           comparison: {
             beforeDate: formattedBeforeDate,
             beforeScore,
             afterDate: formattedAfterDate,
             afterScore,
-            resolvedCount,
-            resolvedSummary,
-            newCount,
-            newSummary,
+            resolvedCount: comparison.counts.resolved,
+            newCount: comparison.counts.new,
+            unchangedCount: comparison.counts.unchanged,
+            notTestedCount: comparison.counts.notTested,
             headline,
           },
         })

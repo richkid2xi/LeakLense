@@ -1,4 +1,5 @@
 import { Router, type Request, type Response, type NextFunction } from 'express'
+import { z } from 'zod'
 import type { PrismaClient } from '@prisma/client'
 import {
   CreateDomainInputSchema,
@@ -298,6 +299,89 @@ export function createDomainsRouter(prismaClient?: PrismaClient): Router {
         }
 
         res.status(200).json({ domain })
+      } catch (err) {
+        next(err)
+      }
+    },
+  )
+
+  /**
+   * GET /domains/:id/scans
+   * Retrieve all scans for that app/domain (newest first).
+   * Owner-scoped: user must own the domain.
+   * Uses zod validation.
+   */
+  router.get(
+    '/domains/:id/scans',
+    async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+      try {
+        const userId = req.user!.id
+        const paramResult = z.object({ id: z.string().min(1) }).safeParse(req.params)
+        if (!paramResult.success) {
+          res.status(400).json({
+            error: 'INVALID_DOMAIN_ID',
+            message: 'Invalid domain ID parameter.',
+          })
+          return
+        }
+
+        const id = paramResult.data.id
+        const domain = await prisma.domain.findFirst({
+          where: {
+            userId,
+            OR: [{ id }, { hostname: id }],
+          },
+        })
+
+        if (!domain) {
+          res.status(404).json({
+            error: 'DOMAIN_NOT_FOUND',
+            message: 'Domain not found or unauthorized',
+          })
+          return
+        }
+
+        const scans = await prisma.scan.findMany({
+          where: { domainId: domain.id },
+          orderBy: { createdAt: 'desc' },
+          include: {
+            findings: {
+              select: { severity: true },
+            },
+            checkRuns: {
+              select: { status: true },
+            },
+          },
+        })
+
+        const formattedScans = scans.map((s) => {
+          const countsBySeverity = {
+            critical: s.findings.filter((f) => f.severity.toLowerCase() === 'critical').length,
+            high: s.findings.filter((f) => f.severity.toLowerCase() === 'high').length,
+            medium: s.findings.filter((f) => f.severity.toLowerCase() === 'medium').length,
+            low: s.findings.filter((f) => f.severity.toLowerCase() === 'low').length,
+          }
+          const couldNotTestCount = s.checkRuns.filter(
+            (c) => c.status.toLowerCase().replace(/['\s_-]/g, '') === 'couldnottest',
+          ).length
+
+          const startedAt = s.startedAt ? s.startedAt.toISOString() : s.createdAt.toISOString()
+          const finishedAt = s.finishedAt ? s.finishedAt.toISOString() : null
+
+          return {
+            id: s.id,
+            domainId: s.domainId,
+            status: s.status,
+            startedAt,
+            finishedAt,
+            score: s.exposureScore,
+            scoreVersion: s.scoreVersion || '1.0.0',
+            countsBySeverity,
+            couldNotTestCount,
+          }
+        })
+
+        res.status(200).json({ scans: formattedScans })
       } catch (err) {
         next(err)
       }
