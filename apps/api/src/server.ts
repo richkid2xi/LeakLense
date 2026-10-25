@@ -40,16 +40,53 @@ async function bootstrap() {
       console.log("pg-boss scan worker registered in API server.");
 
       scanEnqueuer = async (data: { scanId: string; domainId: string; verifiedHostname: string }) => {
+        // Run immediately in background to guarantee real-time progress and zero delay
+        setImmediate(async () => {
+          try {
+            console.log(`[Scan Engine] Initiating scan for ${data.verifiedHostname} (scanId: ${data.scanId})`);
+            await processScanJob(data, prisma);
+          } catch (err) {
+            console.error(`[Scan Engine] Scan direct execution failed for ${data.verifiedHostname}:`, err);
+          }
+        });
+
+        // Also send to pg-boss for persistent audit/queue logging
         try {
           await boss.send("run-scan", data);
         } catch {
-          // Fall back to direct execution if boss send fails
-          setImmediate(() => processScanJob(data, prisma).catch(console.error));
+          // Non-blocking since immediate execution is already running
         }
       };
     } catch (err) {
       console.warn("Could not connect pg-boss queue, proceeding with direct background execution:", err);
     }
+  }
+
+  // Startup recovery: complete any scans that were left in pending or stalled state
+  try {
+    const stalledScans = await prisma.scan.findMany({
+      where: {
+        status: { in: ["pending", "running"] },
+      },
+      include: { domain: true },
+    });
+    for (const stalled of stalledScans) {
+      if (stalled.domain) {
+        console.log(`[Startup Recovery] Resuming stalled scan ${stalled.id} (${stalled.domain.hostname})`);
+        setImmediate(() =>
+          processScanJob(
+            {
+              scanId: stalled.id,
+              domainId: stalled.domain!.id,
+              verifiedHostname: stalled.domain!.hostname,
+            },
+            prisma
+          ).catch((e) => console.error(`[Startup Recovery] Failed for ${stalled.id}:`, e))
+        );
+      }
+    }
+  } catch (err) {
+    console.warn("[Startup Recovery] Could not check stalled scans:", err);
   }
 
   const app = createApp({ prisma, scanEnqueuer });

@@ -1304,8 +1304,7 @@ body:has(.app-shell),
 
 .sample-label { margin-top: auto; padding: 14px 10px 0; color: #888; border-top: 1px solid #333; font: 11px/1.6 "JetBrains Mono"; letter-spacing: .1em; }
 
-.sidebar-profile-block,
-.mobile-drawer-account {
+.sidebar-profile-block {
   margin-top: auto;
   padding: 16px;
   border-top: 1px solid #333;
@@ -1314,56 +1313,20 @@ body:has(.app-shell),
   gap: clamp(8px, 1.5vh, 12px);
   box-sizing: border-box;
 }
-.mobile-drawer-user {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 4px 0;
-  min-width: 0;
+
+/* On desktop, hide mobile username and mobile actions */
+.mobile-only-username,
+.mobile-only-action {
+  display: none !important;
 }
-.mobile-drawer-user .user-avatar {
-  width: 40px;
-  height: 40px;
-  min-width: 40px;
-  flex-shrink: 0;
-  border-radius: 2px;
-  background: #262626;
-  border: 1px solid #444;
-  color: white;
-  display: grid;
-  place-items: center;
-  font: 500 12px "JetBrains Mono";
-}
-.mobile-drawer-user .user-info {
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  min-width: 0;
-  flex: 1;
-}
-.mobile-drawer-user .user-info strong {
-  font-size: 13px;
-  color: white;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  min-width: 0;
-}
-.mobile-drawer-user .user-info small {
-  font-size: 12px;
-  color: #888;
-  font-family: "JetBrains Mono", monospace;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  min-width: 0;
-}
-.mobile-drawer-actions {
+
+.sidebar-footer-actions {
   display: flex;
   flex-direction: column;
   gap: 4px;
 }
-.mobile-drawer-actions button,
+
+.sidebar-footer-actions button,
 .drawer-action-btn {
   display: flex;
   align-items: center;
@@ -1382,7 +1345,8 @@ body:has(.app-shell),
   box-sizing: border-box;
   white-space: nowrap;
 }
-.mobile-drawer-actions button .material-icon,
+
+.sidebar-footer-actions button .material-icon,
 .drawer-action-btn .material-icon,
 .drawer-action-btn .material-symbols-outlined {
   font-size: 18px;
@@ -1390,17 +1354,20 @@ body:has(.app-shell),
   text-align: center;
   flex-shrink: 0;
 }
-.mobile-drawer-actions button:hover,
+
+.sidebar-footer-actions button:hover,
 .drawer-action-btn:hover {
   color: white;
   background: #1e1e1e;
   border-color: #333;
 }
-.mobile-drawer-actions button.logout-btn,
+
+.sidebar-footer-actions button.logout-btn,
 .drawer-action-btn.logout-btn {
   color: #f87171;
 }
-.mobile-drawer-actions button.logout-btn:hover,
+
+.sidebar-footer-actions button.logout-btn:hover,
 .drawer-action-btn.logout-btn:hover {
   background: rgba(220, 38, 38, 0.15);
   border-color: rgba(220, 38, 38, 0.3);
@@ -1749,6 +1716,238 @@ body:has(.app-shell),
 .toggle-row { display: flex; align-items: center; gap: 12px; font-size: 13px; }.toggle-row input { accent-color: var(--ink); }.danger-zone { color: var(--critical); }
 
 /* ==========================================================================
+   Desktop Scan History Filters: inline horizontal row
+   ========================================================================== */
+.scans-filter-toolbar {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.scans-filter-grid {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-end;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.scans-filter-app,
+.scans-filter-result,
+.scans-filter-date {
+  min-width: 175px;
+  flex: 0 0 auto;
+}
+
+.clear-filters-btn {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 12px;
+  color: var(--muted);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  text-decoration: underline;
+  padding: 8px 0;
+  white-space: nowrap;
+  margin-left: auto;
+}
+
+.clear-filters-btn:hover {
+  color: var(--ink);
+}
+
+/* ==========================================================================
+   Finding Drawer: Fix Segmented Control & Status Wrap
+   ========================================================================== */
+.fix-segmented-control {
+  display: flex;
+  flex-direction: row;
+  background: #EAEAE4;
+  border: 1px solid var(--hairline);
+  border-radius: 4px;
+  padding: 3px;
+  gap: 4px;
+  margin-top: 10px;
+  margin-bottom: 16px;
+}
+
+.fix-segmented-control button {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 40px;
+  padding: 0 12px;
+  font-family: var(--font-sans, "Inter", sans-serif);
+  font-size: 13px;
+  font-weight: 500;
+  color: #6E6E6A;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.fix-segmented-control button .material-symbols-outlined,
+.fix-segmented-control button .material-icon {
+  font-size: 18px;
+}
+
+.fix-segmented-control button:hover:not(.active) {
+  color: var(--ink);
+  background: rgba(255, 255, 255, 0.45);
+}
+
+.fix-segmented-control button.active {
+  color: var(--ink);
+  background: white;
+  border-color: var(--hairline);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  font-weight: 600;
+}
+
+@media (max-width: 440px) {
+  .fix-segmented-control {
+    flex-direction: column;
+  }
+  .fix-segmented-control button {
+    height: 42px;
+    justify-content: flex-start;
+    padding-left: 12px;
+  }
+}
+
+.drawer-status-wrap {
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid var(--hairline);
+}
+
+.drawer-status-wrap .status-control {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: none;
+}
+
+.drawer-status-wrap .status-note {
+  font-size: 12px;
+  color: var(--muted);
+  margin-top: 8px;
+  line-height: 1.4;
+}
+
+/* ==========================================================================
+   Dashboard Loading Animations (Sleek, Minimal Paper & Ink Shimmer)
+   ========================================================================== */
+@keyframes hairline-shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.skeleton-shimmer {
+  background: linear-gradient(
+    90deg,
+    rgba(217, 217, 211, 0.35) 0%,
+    rgba(217, 217, 211, 0.75) 50%,
+    rgba(217, 217, 211, 0.35) 100%
+  );
+  background-size: 200% 100%;
+  animation: hairline-shimmer 1.8s ease-in-out infinite;
+  border-radius: 2px;
+}
+
+.skeleton-table {
+  border: 1px solid var(--hairline);
+  background: white;
+}
+
+.skeleton-row {
+  cursor: default !important;
+  pointer-events: none;
+}
+
+.skeleton-cell {
+  height: 14px;
+  border-radius: 2px;
+  background: linear-gradient(
+    90deg,
+    rgba(217, 217, 211, 0.35) 0%,
+    rgba(217, 217, 211, 0.75) 50%,
+    rgba(217, 217, 211, 0.35) 100%
+  );
+  background-size: 200% 100%;
+  animation: hairline-shimmer 1.8s ease-in-out infinite;
+  display: inline-block;
+}
+
+.skeleton-date {
+  width: 90px;
+}
+
+.skeleton-host {
+  width: 150px;
+  height: 16px;
+  margin-bottom: 4px;
+}
+
+.skeleton-scanid {
+  width: 75px;
+  height: 12px;
+}
+
+.skeleton-score {
+  width: 38px;
+  height: 22px;
+}
+
+.skeleton-trend {
+  width: 60px;
+  height: 18px;
+}
+
+.skeleton-status {
+  width: 75px;
+  height: 20px;
+  border-radius: 9999px;
+}
+
+.skeleton-card {
+  min-height: 120px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 24px;
+  background: white;
+  border: 1px solid var(--hairline);
+}
+
+.skeleton-app-title {
+  width: 140px;
+  height: 18px;
+}
+
+.skeleton-app-meta {
+  width: 200px;
+  height: 12px;
+}
+
+.skeleton-app-actions {
+  width: 100px;
+  height: 24px;
+  margin-top: auto;
+}
+
+/* ==========================================================================
    Responsive Breakpoints:
    - Desktop: 1024px and up (Sidebar never scrolls, workspace scrolls)
    - Tablet: 768px - 1023px (Off-canvas drawer, full-screen sheet)
@@ -1853,6 +2052,24 @@ body:has(.app-shell),
     transform: translateX(0);
     visibility: visible;
     box-shadow: 12px 0 32px rgba(0, 0, 0, 0.45);
+  }
+
+  .mobile-only-username {
+    display: block !important;
+    padding: 10px 14px 4px !important;
+  }
+  .mobile-only-username .sidebar-mobile-name {
+    font-size: 14px;
+    font-weight: 600;
+    color: white;
+    font-family: var(--font-sans, sans-serif);
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .mobile-only-action {
+    display: flex !important;
   }
 
   .mobile-close-btn {

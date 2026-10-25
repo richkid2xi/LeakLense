@@ -238,6 +238,7 @@ export function LoggedInApp({
     type: "success" | "error" | "info";
   }
   const [toasts, setToasts] = useState<ToastItem[]>([]);
+  const [isDashboardLoading, setIsDashboardLoading] = useState(true);
   const showToast = (message: string, type: "success" | "error" | "info" = "info") => {
     const id = `${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
     setToasts((prev) => [...prev, { id, message, type }]);
@@ -357,25 +358,29 @@ export function LoggedInApp({
       }
     });
 
-    api.getDomains().then(setDomains).catch(() => {});
-
-    api.getScans().then((loadedScans) => {
-      setScans(loadedScans);
-      const firstScan = loadedScans[0];
-      if (firstScan) {
-        api.getScan(firstScan.id).then((detail) => {
-          setFindings(detail.findings);
-          setChecksRun(detail.checksRun.map((c) => [c.name, c.status, c.reason || ""]));
-          setActiveScanId(detail.id);
-          setActiveScanScore(detail.exposureScore);
-          setDetectedStack(detail.detectedStack || []);
-          if (detail.builder) setBuilder(detail.builder);
-          if (!url && detail.url) {
-            setUrl(detail.url);
-          }
-        }).catch(() => {});
-      }
-    }).catch(() => {});
+    Promise.allSettled([
+      api.getDomains().then(setDomains).catch(() => {}),
+      api.getScans().then((loadedScans) => {
+        setScans(loadedScans);
+        const firstScan = loadedScans[0];
+        if (firstScan) {
+          return api.getScan(firstScan.id).then((detail) => {
+            setFindings(detail.findings);
+            setChecksRun(detail.checksRun.map((c) => [c.name, c.status, c.reason || ""]));
+            setActiveScanId(detail.id);
+            setActiveScanScore(detail.exposureScore);
+            setDetectedStack(detail.detectedStack || []);
+            if (detail.builder) setBuilder(detail.builder);
+            if (!url && detail.url) {
+              setUrl(detail.url);
+            }
+          }).catch(() => {});
+        }
+        return null;
+      }).catch(() => {}),
+    ]).finally(() => {
+      setIsDashboardLoading(false);
+    });
   }, []);
 
   useEffect(() => {
@@ -939,19 +944,17 @@ export function LoggedInApp({
             <MaterialIcon>settings</MaterialIcon><span>Settings</span>
           </button>
         </nav>
-        <div className="sidebar-profile-block mobile-drawer-account">
-          <div className="mobile-drawer-user">
-            <span className="user-avatar">{userInitials}</span>
-            <div className="user-info">
-              <strong>{userName}</strong>
-              <small>{userEmail}</small>
-            </div>
+        <div className="sidebar-profile-block">
+          {/* Mobile view only: user name only (no avatar, no email) */}
+          <div className="mobile-only-username">
+            <span className="sidebar-mobile-name">{userName}</span>
           </div>
-          <div className="mobile-drawer-actions">
+
+          <div className="sidebar-footer-actions">
             {onViewHome && (
               <button
                 type="button"
-                className="drawer-action-btn"
+                className="drawer-action-btn mobile-only-action"
                 onClick={() => {
                   setMobileMenuOpen(false);
                   onViewHome();
@@ -960,16 +963,6 @@ export function LoggedInApp({
                 <MaterialIcon>home</MaterialIcon> <span>Landing page</span>
               </button>
             )}
-            <button
-              type="button"
-              className="drawer-action-btn"
-              onClick={() => {
-                setMobileMenuOpen(false);
-                nav("settings");
-              }}
-            >
-              <MaterialIcon>settings</MaterialIcon> <span>Account settings</span>
-            </button>
             <button
               type="button"
               className="drawer-action-btn logout-btn"
@@ -1695,7 +1688,29 @@ export function LoggedInApp({
                   )}
                 </div>
 
-                {visibleScans.length === 0 ? (
+                {isDashboardLoading ? (
+                  <div className="history-table skeleton-table" aria-label="Loading scan history">
+                    <div className="history-row head">
+                      <span>Date</span>
+                      <span>App / Scan</span>
+                      <span>Score</span>
+                      <span>Exposure Trend</span>
+                      <span>Status</span>
+                    </div>
+                    {[1, 2, 3, 4].map((i) => (
+                      <div className="history-row scan-history-card skeleton-row" key={i}>
+                        <span className="skeleton-cell skeleton-date" />
+                        <div className="history-target history-host-col">
+                          <span className="skeleton-cell skeleton-host" />
+                          <span className="skeleton-cell skeleton-scanid" />
+                        </div>
+                        <span className="skeleton-cell skeleton-score" />
+                        <span className="skeleton-cell skeleton-trend" />
+                        <span className="skeleton-cell skeleton-status" />
+                      </div>
+                    ))}
+                  </div>
+                ) : visibleScans.length === 0 ? (
                   <div className="empty-state">
                     <MicroLabel>{scans.length === 0 ? "NO SCANS YET" : "NO MATCHING SCANS"}</MicroLabel>
                     <p>
@@ -1788,7 +1803,15 @@ export function LoggedInApp({
                   </button>
                 </div>
                 <div className="apps-grid">
-                  {domains.length === 0 ? (
+                  {isDashboardLoading ? (
+                    [1, 2].map((i) => (
+                      <div className="app-card skeleton-card" key={i}>
+                        <span className="skeleton-cell skeleton-app-title" />
+                        <span className="skeleton-cell skeleton-app-meta" />
+                        <span className="skeleton-cell skeleton-app-actions" />
+                      </div>
+                    ))
+                  ) : domains.length === 0 ? (
                     <div className="empty-app-card">
                       <MicroLabel>NO APPS REGISTERED</MicroLabel>
                       <p>Your verified apps will appear here after running your first scan.</p>

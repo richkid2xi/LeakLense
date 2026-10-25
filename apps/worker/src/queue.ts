@@ -41,6 +41,17 @@ export async function processScanJob(
   const { scanId, domainId, verifiedHostname, targetUrl } = jobData
   const target = targetUrl || `https://${verifiedHostname}`
 
+  // 0. Ensure scan exists and is not already completed
+  if (prisma.scan?.findUnique) {
+    const currentScan = await prisma.scan.findUnique({
+      where: { id: scanId },
+      select: { status: true },
+    })
+    if (currentScan?.status === 'completed') {
+      return
+    }
+  }
+
   // 1. Fetch domain and re-validate verification status & 30-day expiry (Amendment e)
   const domain = await prisma.domain.findUnique({
     where: { id: domainId },

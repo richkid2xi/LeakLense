@@ -197,8 +197,8 @@ export function FindingDrawer({
             )}
           </section>
 
-          {/* Desktop status control */}
-          <div className="desktop-status-wrap">
+          {/* Status control */}
+          <div className="drawer-status-wrap">
             <label className="status-control">
               STATUS
               <select value={finding.status} onChange={(e) => onStatus(e.target.value as Finding["status"])}>
@@ -211,30 +211,6 @@ export function FindingDrawer({
               <p className="status-note">Marked fixed. A rescan is required to confirm the issue is resolved.</p>
             )}
           </div>
-        </div>
-
-        {/* Mobile sticky bottom bar */}
-        <div className="drawer-mobile-bottom-bar">
-          <label className="status-control mobile-status-control">
-            STATUS
-            <select value={finding.status} onChange={(e) => onStatus(e.target.value as Finding["status"])}>
-              <option>Open</option>
-              <option>Fixed</option>
-              <option>Ignored</option>
-            </select>
-          </label>
-          <button
-            type="button"
-            className="button primary mobile-copy-prompt-btn"
-            onClick={async () => {
-              try {
-                await navigator.clipboard.writeText(prompt);
-              } catch {}
-            }}
-          >
-            <MaterialIcon>content_copy</MaterialIcon>
-            <span>Copy fix prompt</span>
-          </button>
         </div>
       </aside>
     </div>
