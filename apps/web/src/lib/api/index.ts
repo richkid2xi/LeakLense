@@ -10,6 +10,8 @@ import {
   RescanComparison,
   CreateScanOptions,
   FindingStatus,
+  DomainScanItem,
+  CompareScansResponse,
 } from "./types";
 
 export * from "./types";
@@ -68,6 +70,14 @@ export async function rescan(domainOrUrl: string): Promise<UiScanDetail> {
 
 export async function getRescanComparison(scanId?: string): Promise<RescanComparison> {
   return adapter.getRescanComparison(scanId);
+}
+
+export async function getDomainScans(domainId: string): Promise<DomainScanItem[]> {
+  return (adapter as any).getDomainScans ? (adapter as any).getDomainScans(domainId) : httpAdapter.getDomainScans(domainId);
+}
+
+export async function compareScans(beforeId: string, afterId: string): Promise<CompareScansResponse> {
+  return (adapter as any).compareScans ? (adapter as any).compareScans(beforeId, afterId) : httpAdapter.compareScans(beforeId, afterId);
 }
 
 export async function getPublicStats(): Promise<{ userCount: number; scanCount: number }> {

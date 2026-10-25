@@ -8,6 +8,8 @@ import {
   RescanComparison,
   CreateScanOptions,
   FindingStatus,
+  DomainScanItem,
+  CompareScansResponse,
 } from "./types";
 
 import { supabase } from "../supabase";
@@ -351,6 +353,18 @@ export const httpAdapter = {
         headline: "Baseline scan complete.",
       };
     }
+  },
+
+  async getDomainScans(domainId: string): Promise<DomainScanItem[]> {
+    const data = await request<{ scans: DomainScanItem[] }>(`/domains/${encodeURIComponent(domainId)}/scans`);
+    return data.scans || [];
+  },
+
+  async compareScans(beforeId: string, afterId: string): Promise<CompareScansResponse> {
+    const data = await request<CompareScansResponse>(
+      `/scans/compare?before=${encodeURIComponent(beforeId)}&after=${encodeURIComponent(afterId)}`
+    );
+    return data;
   },
 
   async getPublicStats(): Promise<{ userCount: number; scanCount: number }> {

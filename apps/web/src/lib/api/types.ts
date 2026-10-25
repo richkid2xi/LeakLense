@@ -73,6 +73,50 @@ export interface VerificationResult {
   message?: string;
 }
 
+export interface DomainScanItem {
+  id: string;
+  domainId: string;
+  status: string;
+  startedAt: string;
+  finishedAt: string | null;
+  score: number | null;
+  scoreVersion: string;
+  countsBySeverity: {
+    critical: number;
+    high: number;
+    medium: number;
+    low: number;
+  };
+  couldNotTestCount: number;
+}
+
+export interface CompareFindingItem {
+  id?: number | string;
+  title: string;
+  severity: Severity;
+  where: string;
+  fingerprint?: string;
+}
+
+export interface CompareScansResponse {
+  beforeScanId: string;
+  afterScanId: string;
+  beforeScore: number;
+  afterScore: number;
+  deltaScore: number;
+  counts: {
+    resolved: number;
+    new: number;
+    unchanged: number;
+    notTested: number;
+  };
+  resolved: CompareFindingItem[];
+  new: CompareFindingItem[];
+  unchanged: CompareFindingItem[];
+  notTested: CompareFindingItem[];
+  comparison?: RescanComparison;
+}
+
 export interface RescanComparison {
   beforeDate: string;
   beforeScore: number;

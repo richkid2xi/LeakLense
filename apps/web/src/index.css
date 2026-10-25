@@ -2648,3 +2648,52 @@ html.is-ready .companion {
     grid-template-columns: 1fr;
   }
 }
+
+/* Compare Rescans styling (Part D5) */
+.compare-dropdowns-bar {
+  display: flex;
+  align-items: flex-end;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin: 20px 0 24px;
+  padding: 16px 20px;
+  background: white;
+  border: 1px solid var(--hairline);
+  border-radius: 2px;
+}
+.compare-arrow-divider {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--muted);
+  height: 38px;
+}
+.compare-grid-4 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-top: 24px;
+}
+@media (max-width: 800px) {
+  .compare-grid-4 {
+    grid-template-columns: 1fr;
+  }
+}
+.compare-card {
+  padding: 24px;
+  border: 1px solid var(--hairline);
+  background: rgba(255, 255, 255, 0.7);
+  border-radius: 2px;
+  display: flex;
+  flex-direction: column;
+}
+.compare-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  cursor: pointer;
+  user-select: none;
+}
+.compare-card-header:hover h3 {
+  color: var(--blue-deep);
+}

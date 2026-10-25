@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import * as api from "../lib/api";
-import type { FindingStatus, RescanComparison, UiFinding as Finding, UiScanSummary, UiDomain } from "../lib/api";
+import type { FindingStatus, UiFinding as Finding, UiScanSummary, UiDomain } from "../lib/api";
 import { companionEvents, SeverityLevel } from "../lib/companion/events";
 import { BRAND, checks } from "../constants/marketing";
 import { getScoreBand, SCORE_CAPTION } from "@leaklens/shared";
@@ -14,6 +14,7 @@ import { LegalDocument, LegalModal } from "../components/modals/LegalModal";
 import { validateScanUrl } from "../components/marketing/UrlForm";
 import { supabase } from "../lib/supabase";
 import { CustomDropdown } from "../components/common/CustomDropdown";
+import { ExpandableFindingGroup } from "../components/common/ExpandableFindingGroup";
 
 export type Screen = "new" | "verify" | "progress" | "results" | "history" | "apps" | "compare" | "settings" | "failed";
 
@@ -25,6 +26,57 @@ const scanMessages = [
   "Reviewing cloud storage policies",
   "Synthesizing security score and exposures",
 ];
+
+function formatScanCompareLabel(
+  scan: api.DomainScanItem,
+  allScans: api.DomainScanItem[]
+): { label: string; tooltip: string } {
+  const d = new Date(scan.startedAt);
+  const hasSameMinute = allScans.some((other) => {
+    if (other.id === scan.id) return false;
+    const od = new Date(other.startedAt);
+    return (
+      d.getFullYear() === od.getFullYear() &&
+      d.getMonth() === od.getMonth() &&
+      d.getDate() === od.getDate() &&
+      d.getHours() === od.getHours() &&
+      d.getMinutes() === od.getMinutes()
+    );
+  });
+
+  const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  const month = monthNames[d.getMonth()];
+  const day = d.getDate();
+  let hours = d.getHours();
+  const ampm = hours >= 12 ? "PM" : "AM";
+  hours = hours % 12;
+  hours = hours ? hours : 12;
+  const minutes = String(d.getMinutes()).padStart(2, "0");
+  const seconds = String(d.getSeconds()).padStart(2, "0");
+
+  const timeStr = hasSameMinute
+    ? `${hours}:${minutes}:${seconds} ${ampm}`
+    : `${hours}:${minutes} ${ampm}`;
+
+  const totalFindings =
+    (scan.countsBySeverity?.critical || 0) +
+    (scan.countsBySeverity?.high || 0) +
+    (scan.countsBySeverity?.medium || 0) +
+    (scan.countsBySeverity?.low || 0);
+
+  const scoreStr = scan.score != null ? String(scan.score) : "100";
+  const label = `${month} ${day}, ${timeStr} · ${totalFindings} findings · score ${scoreStr}`;
+
+  let tz = "UTC";
+  try {
+    tz = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+  } catch {
+    // fallback
+  }
+  const tooltip = `${d.toLocaleString()} (${tz})`;
+
+  return { label, tooltip };
+}
 
 export function LoggedInApp({
   initialUrl,
@@ -105,12 +157,18 @@ export function LoggedInApp({
   const [activeScanScore, setActiveScanScore] = useState<number | null>(null);
   const [detectedStack, setDetectedStack] = useState<string[]>([]);
   const [, setScanLoading] = useState(false);
-  const [comparison, setComparison] = useState<RescanComparison | null>(null);
   const [verificationData, setVerificationData] = useState<api.VerificationChallenge | null>(null);
   const [isCheckingVerification, setIsCheckingVerification] = useState(false);
   const [rescanLoading, setRescanLoading] = useState<Record<string, boolean>>({});
   const [rateLimitErrors, setRateLimitErrors] = useState<Record<string, string>>({});
   const [rescanDeltas, setRescanDeltas] = useState<Record<string, number>>({});
+  const [compareDomainId, setCompareDomainId] = useState<string>("");
+  const [compareDomainScans, setCompareDomainScans] = useState<api.DomainScanItem[]>([]);
+  const [beforeScanId, setBeforeScanId] = useState<string | null>(null);
+  const [afterScanId, setAfterScanId] = useState<string | null>(null);
+  const [comparisonResult, setComparisonResult] = useState<api.CompareScansResponse | null>(null);
+  const [isComparing, setIsComparing] = useState<boolean>(false);
+  const [isRescanningFromCompare, setIsRescanningFromCompare] = useState<boolean>(false);
 
   const handleSaveProfile = async () => {
     if (!profileName.trim()) return;
@@ -184,7 +242,6 @@ export function LoggedInApp({
             setUrl(detail.url);
           }
         }).catch(() => {});
-        api.getRescanComparison(firstScan.id).then(setComparison).catch(() => {});
       }
     }).catch(() => {});
   }, []);
@@ -198,6 +255,85 @@ export function LoggedInApp({
         setActionMessage(err?.message || "Failed to load verification challenge.");
       });
   }, [screen, url, verifyTab]);
+
+  // Sync compare domain
+  useEffect(() => {
+    if (screen !== "compare" || domains.length === 0) return;
+    const target = domains.find((d) => d.id === compareDomainId) || domains.find((d) => d.hostname === url) || domains[0];
+    if (target && target.id !== compareDomainId) {
+      setCompareDomainId(target.id);
+    }
+  }, [screen, domains, url, compareDomainId]);
+
+  // Load domain scans for compareDomainId
+  useEffect(() => {
+    if (screen !== "compare" || !compareDomainId) return;
+
+    api.getDomainScans(compareDomainId)
+      .then((domainScans) => {
+        setCompareDomainScans(domainScans);
+        if (domainScans.length >= 2) {
+          const latest = domainScans[0];
+          const previous = domainScans[1];
+          if (latest && previous) {
+            setAfterScanId(latest.id);
+            setBeforeScanId(previous.id);
+          }
+        } else if (domainScans.length === 1) {
+          const single = domainScans[0];
+          if (single) {
+            setAfterScanId(single.id);
+            setBeforeScanId(null);
+          }
+        } else {
+          setAfterScanId(null);
+          setBeforeScanId(null);
+        }
+      })
+      .catch((err) => {
+        console.error("Failed to load domain scans:", err);
+        setCompareDomainScans([]);
+      });
+  }, [screen, compareDomainId]);
+
+  // Fetch comparison when beforeScanId and afterScanId change
+  useEffect(() => {
+    if (screen !== "compare" || !beforeScanId || !afterScanId) {
+      setComparisonResult(null);
+      return;
+    }
+
+    setIsComparing(true);
+    api.compareScans(beforeScanId, afterScanId)
+      .then((res) => {
+        setComparisonResult(res);
+        setIsComparing(false);
+      })
+      .catch((err) => {
+        console.error("Comparison error:", err);
+        setIsComparing(false);
+      });
+  }, [screen, beforeScanId, afterScanId]);
+
+  const handleRunRescanFromCompare = async () => {
+    const targetDomain = domains.find((d) => d.id === compareDomainId) || domains[0];
+    if (!targetDomain) return;
+    try {
+      setIsRescanningFromCompare(true);
+      const scanDetail = await api.createScan(targetDomain.hostname, { authorized: true });
+      setUrl(targetDomain.hostname);
+      setActiveScanId(scanDetail.id);
+      setFindings(scanDetail.findings);
+      setChecksRun(scanDetail.checksRun.map((c) => [c.name, c.status, c.reason || ""]));
+      setActiveScanScore(scanDetail.exposureScore);
+      setDetectedStack(scanDetail.detectedStack || []);
+      nav("progress");
+    } catch (err: any) {
+      setActionMessage(err.message || "Failed to start rescan.");
+    } finally {
+      setIsRescanningFromCompare(false);
+    }
+  };
 
   const filtered = findings.filter(
     (f) =>
@@ -392,7 +528,6 @@ export function LoggedInApp({
 
             api.getScans().then(setScans).catch(() => {});
             api.getDomains().then(setDomains).catch(() => {});
-            api.getRescanComparison(created.id).then(setComparison).catch(() => {});
 
             const counts = {
               critical: latest.findings.filter((f) => f.severity === "Critical").length,
@@ -476,7 +611,6 @@ export function LoggedInApp({
 
             api.getScans().then(setScans).catch(() => {});
             api.getDomains().then(setDomains).catch(() => {});
-            api.getRescanComparison(created.id).then(setComparison).catch(() => {});
 
             const counts = {
               critical: latest.findings.filter((f) => f.severity === "Critical").length,
@@ -959,9 +1093,6 @@ export function LoggedInApp({
                     STATUS <b>{scans.find((s) => s.id === activeScanId)?.status === "complete" ? "COMPLETE" : "JUST NOW"}</b>
                   </span>
                   <button onClick={() => {
-                    if (activeScanId) {
-                      api.getRescanComparison(activeScanId).then(setComparison).catch(() => {});
-                    }
                     nav("compare");
                   }}>
                     COMPARE RESCAN <MaterialIcon>arrow_forward</MaterialIcon>
@@ -1071,62 +1202,166 @@ export function LoggedInApp({
               </section>
             )}
 
-            {screen === "compare" && (
-              <section className="app-screen">
-                <button className="app-back" onClick={() => nav("results")}>
-                  <MaterialIcon>arrow_back</MaterialIcon> BACK TO RESULTS
-                </button>
-                <div className="app-page-title">
-                  <MicroLabel>RESCAN COMPARISON</MicroLabel>
-                  <h1>{comparison?.headline || (comparison?.beforeDate === "None" ? "No prior scan to compare" : "Scan comparison.")}</h1>
-                </div>
-                <div className="compare-scores">
-                  <div>
-                    <MicroLabel>BEFORE / {(comparison?.beforeDate || "BASELINE").toUpperCase()}</MicroLabel>
-                    <strong>{comparison?.beforeScore ?? "—"}</strong>
-                    <span>/100</span>
-                    {comparison?.beforeScore !== undefined && (
-                      <small className="score-band-sub" style={{ display: "block", fontSize: "0.8rem", color: "var(--text-muted)", marginTop: 4 }}>
-                        {getScoreBand(comparison.beforeScore).label}
-                      </small>
+            {screen === "compare" && (() => {
+              const selectedCompareDomain = domains.find((d) => d.id === compareDomainId) || domains[0];
+              const scanOptions = compareDomainScans.map((s) => {
+                const formatted = formatScanCompareLabel(s, compareDomainScans);
+                return {
+                  value: s.id,
+                  label: formatted.label,
+                  sublabel: formatted.tooltip,
+                };
+              });
+
+              return (
+                <section className="app-screen">
+                  <button className="app-back" onClick={() => nav(activeScanId ? "results" : "history")}>
+                    <MaterialIcon>arrow_back</MaterialIcon> BACK
+                  </button>
+                  <div className="app-page-title row-title">
+                    <div>
+                      <MicroLabel>
+                        RESCAN COMPARISON / {(selectedCompareDomain?.hostname || appDisplay || "ALL APPS").toUpperCase()}
+                      </MicroLabel>
+                      <h1>Compare rescans.</h1>
+                      <p>Track which exposures were resolved, introduced, or carried over between deployments.</p>
+                    </div>
+                    {domains.length > 1 && (
+                      <div style={{ minWidth: 200 }}>
+                        <CustomDropdown
+                          label="App"
+                          value={compareDomainId || ""}
+                          options={domains.map((d) => ({
+                            value: d.id,
+                            label: d.hostname,
+                          }))}
+                          onChange={(val) => setCompareDomainId(val)}
+                          ariaLabel="Select app to compare"
+                        />
+                      </div>
                     )}
                   </div>
-                  <i>
-                    <MaterialIcon>arrow_forward</MaterialIcon>
-                  </i>
-                  <div>
-                    <MicroLabel>AFTER / {(comparison?.afterDate || "LATEST").toUpperCase()}</MicroLabel>
-                    <strong>{comparison?.afterScore ?? securityScore}</strong>
-                    <span>/100</span>
-                    <small className="score-band-sub" style={{ display: "block", fontSize: "0.8rem", color: "var(--text-muted)", marginTop: 4 }}>
-                      {getScoreBand(comparison?.afterScore ?? securityScore).label}
-                    </small>
-                  </div>
-                </div>
-                <div className="compare-grid">
-                  <article>
-                    <span className="passed">{comparison?.resolvedCount ?? 0} RESOLVED</span>
-                    <h3>Closed since the last scan</h3>
-                    <p>
-                      {comparison?.resolvedSummary ||
-                        "No resolved findings between these scans."}
-                    </p>
-                  </article>
-                  <article>
-                    <span className="severity">{comparison?.newCount ?? 0} NEW</span>
-                    <h3>New since the last scan</h3>
-                    <p>
-                      {comparison?.newSummary ||
-                        "No new exposures detected in this rescan."}
-                    </p>
-                  </article>
-                </div>
-                <p className="report-disclaimer">
-                  {BRAND} checks only the issues listed in our <a href="/#coverage">coverage section</a>. Not a
-                  guarantee of security.
-                </p>
-              </section>
-            )}
+
+                  {compareDomainScans.length < 2 ? (
+                    <div className="empty-state" style={{ marginTop: 24, padding: "48px 24px" }}>
+                      <MicroLabel>INSUFFICIENT SCANS</MicroLabel>
+                      <p style={{ margin: "12px 0 20px" }}>
+                        {compareDomainScans.length === 1
+                          ? `Only 1 scan recorded for ${selectedCompareDomain?.hostname || "this app"}. At least two scans are required to compare results.`
+                          : `No scans recorded for ${selectedCompareDomain?.hostname || "this app"}. Run a scan to establish a baseline.`}
+                      </p>
+                      <button
+                        type="button"
+                        className="button primary"
+                        onClick={handleRunRescanFromCompare}
+                        disabled={isRescanningFromCompare}
+                      >
+                        {isRescanningFromCompare ? "Starting scan..." : "Run a rescan"} <Arrow />
+                      </button>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="compare-dropdowns-bar">
+                        <CustomDropdown
+                          label="Before"
+                          value={beforeScanId || ""}
+                          options={scanOptions}
+                          onChange={(val) => setBeforeScanId(val)}
+                          ariaLabel="Select before scan"
+                        />
+                        <div className="compare-arrow-divider" style={{ padding: "0 4px", color: "var(--muted)", alignSelf: "center", marginTop: 18 }}>
+                          <MaterialIcon>arrow_forward</MaterialIcon>
+                        </div>
+                        <CustomDropdown
+                          label="After"
+                          value={afterScanId || ""}
+                          options={scanOptions}
+                          onChange={(val) => setAfterScanId(val)}
+                          ariaLabel="Select after scan"
+                        />
+                      </div>
+
+                      <div className="compare-scores" style={{ opacity: isComparing ? 0.6 : 1, transition: "opacity 150ms" }}>
+                        <div>
+                          <MicroLabel>BEFORE</MicroLabel>
+                          <div style={{ display: "flex", alignItems: "baseline", gap: 6, marginTop: 8 }}>
+                            <strong>{comparisonResult?.beforeScore ?? "—"}</strong>
+                            <span>/100</span>
+                          </div>
+                          {comparisonResult?.beforeScore != null && (
+                            <small className="score-band-sub" style={{ display: "block", fontSize: "0.85rem", color: "var(--muted)", marginTop: 4 }}>
+                              {getScoreBand(comparisonResult.beforeScore).label}
+                            </small>
+                          )}
+                        </div>
+                        <div style={{ textAlign: "center" }}>
+                          {comparisonResult?.deltaScore != null ? (
+                            <span
+                              className={`score-delta ${
+                                comparisonResult.deltaScore > 0
+                                  ? "positive"
+                                  : comparisonResult.deltaScore < 0
+                                    ? "negative"
+                                    : "neutral"
+                              }`}
+                              style={{ fontSize: 16, padding: "6px 14px", display: "inline-block" }}
+                            >
+                              {comparisonResult.deltaScore > 0 ? `+${comparisonResult.deltaScore}` : comparisonResult.deltaScore}
+                            </span>
+                          ) : (
+                            <i><MaterialIcon>arrow_forward</MaterialIcon></i>
+                          )}
+                        </div>
+                        <div>
+                          <MicroLabel>AFTER</MicroLabel>
+                          <div style={{ display: "flex", alignItems: "baseline", gap: 6, marginTop: 8 }}>
+                            <strong>{comparisonResult?.afterScore ?? "—"}</strong>
+                            <span>/100</span>
+                          </div>
+                          {comparisonResult?.afterScore != null && (
+                            <small className="score-band-sub" style={{ display: "block", fontSize: "0.85rem", color: "var(--muted)", marginTop: 4 }}>
+                              {getScoreBand(comparisonResult.afterScore).label}
+                            </small>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="compare-grid-4">
+                        <ExpandableFindingGroup
+                          title="Resolved"
+                          count={comparisonResult?.counts?.resolved ?? 0}
+                          type="resolved"
+                          findings={comparisonResult?.resolved ?? []}
+                        />
+                        <ExpandableFindingGroup
+                          title="New"
+                          count={comparisonResult?.counts?.new ?? 0}
+                          type="new"
+                          findings={comparisonResult?.new ?? []}
+                        />
+                        <ExpandableFindingGroup
+                          title="Unchanged"
+                          count={comparisonResult?.counts?.unchanged ?? 0}
+                          type="unchanged"
+                          findings={comparisonResult?.unchanged ?? []}
+                        />
+                        <ExpandableFindingGroup
+                          title="Not tested"
+                          count={comparisonResult?.counts?.notTested ?? 0}
+                          type="notTested"
+                          findings={comparisonResult?.notTested ?? []}
+                        />
+                      </div>
+                    </>
+                  )}
+
+                  <p className="report-disclaimer">
+                    {BRAND} checks only the issues listed in our <a href="/#coverage">coverage section</a>. Not a
+                    guarantee of security.
+                  </p>
+                </section>
+              );
+            })()}
 
             {screen === "history" && (
               <section className="app-screen">

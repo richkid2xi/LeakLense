@@ -8,6 +8,8 @@ import {
   RescanComparison,
   CreateScanOptions,
   FindingStatus,
+  DomainScanItem,
+  CompareScansResponse,
 } from "./types";
 
 export const initialMockFindings: UiFinding[] = [
@@ -281,6 +283,73 @@ export const mockAdapter = {
 
   async deleteDomain(_id: string): Promise<boolean> {
     return true;
+  },
+
+  async getDomainScans(_domainId: string): Promise<DomainScanItem[]> {
+    return [
+      {
+        id: "LL-2025-031",
+        domainId: _domainId,
+        status: "complete",
+        startedAt: new Date(Date.now() - 1000 * 60 * 30).toISOString(),
+        finishedAt: new Date(Date.now() - 1000 * 60 * 25).toISOString(),
+        score: 62,
+        scoreVersion: "1.0.0",
+        countsBySeverity: { critical: 1, high: 2, medium: 1, low: 0 },
+        couldNotTestCount: 0,
+      },
+      {
+        id: "LL-2025-024",
+        domainId: _domainId,
+        status: "complete",
+        startedAt: new Date(Date.now() - 1000 * 60 * 60 * 24 * 7).toISOString(),
+        finishedAt: new Date(Date.now() - 1000 * 60 * 60 * 24 * 7 + 1000 * 60 * 5).toISOString(),
+        score: 41,
+        scoreVersion: "1.0.0",
+        countsBySeverity: { critical: 2, high: 3, medium: 1, low: 0 },
+        couldNotTestCount: 0,
+      },
+      {
+        id: "LL-2025-018",
+        domainId: _domainId,
+        status: "complete",
+        startedAt: new Date(Date.now() - 1000 * 60 * 60 * 24 * 14).toISOString(),
+        finishedAt: new Date(Date.now() - 1000 * 60 * 60 * 24 * 14 + 1000 * 60 * 5).toISOString(),
+        score: 30,
+        scoreVersion: "1.0.0",
+        countsBySeverity: { critical: 3, high: 3, medium: 2, low: 0 },
+        couldNotTestCount: 1,
+      },
+    ];
+  },
+
+  async compareScans(beforeId: string, afterId: string): Promise<CompareScansResponse> {
+    return {
+      beforeScanId: beforeId,
+      afterScanId: afterId,
+      beforeScore: 41,
+      afterScore: 62,
+      deltaScore: 21,
+      counts: {
+        resolved: 2,
+        new: 1,
+        unchanged: 3,
+        notTested: 0,
+      },
+      resolved: [
+        { id: 4, title: "Environment file is publicly reachable", severity: "Critical", where: "/.env" },
+        { id: 9, title: "Storage path can be enumerated", severity: "Low", where: "storage/avatars" },
+      ],
+      new: [
+        { id: 8, title: "Internal database error returned to client", severity: "Medium", where: "/api/checkout" },
+      ],
+      unchanged: [
+        { id: 1, title: "Live secret key exposed in main bundle", severity: "Critical", where: "/assets/index-a81c.js" },
+        { id: 2, title: "Supabase anon key has full table access", severity: "High", where: "supabase/anon" },
+        { id: 5, title: "Row-level security missing on “orders”", severity: "High", where: "supabase/public/orders" },
+      ],
+      notTested: [],
+    };
   },
 
   resetStore() {
