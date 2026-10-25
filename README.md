@@ -275,7 +275,26 @@ The knowledge base (`packages/kb`) maps findings to actionable remediation mater
 
 ## 6. Design & User Experience
 
-LeakLens features an editorial, high-contrast design language avoiding fear-based alert styling. For an in-depth breakdown of typographic hierarchy, spatial motion, progressive disclosure, and the companion state machine, see [docs/design.md](docs/design.md).
+The user interface departs from traditional cybersecurity software. Rather than relying on alarmist dashboards that induce panic, LeakLens employs an editorial, clinical design language inspired by Swiss typography. Security assessments are presented as rigorous audit reports, treating developers as peers rather than negligent adversaries:
+
+```
+┌────────────────────────────────────────────────────────┐
+│                  Design Architecture                   │
+├────────────────────────────────────────────────────────┤
+│  Aesthetic: Swiss Editorial + High-Contrast Precision  │
+│  Typography: Instrument Serif + JetBrains Mono + Inter │
+│  Palette: High-contrast Ink (#0e0e0e) & Paper (#f3f3f0)│
+│  Philosophy: Calm Guidance over Panic & Fear (FUD)     │
+└────────────────────────────────────────────────────────┘
+```
+
+- **Anti-Fear Security Philosophy**: Findings are described neutrally with clear explanations of what was observed, why it matters, and how to remediate it. Results are framed strictly within the context of the checks executed.
+- **Typographic Hierarchy**:
+  - `Instrument Serif`: Screen titles, hero numbers, and the exposure score.
+  - `JetBrains Mono`: Technical artifacts, evidence strings, HTTP statuses, and timestamps.
+  - `Inter`: Body prose, step-by-step instructions, and rationale text.
+- **Ambient Companion Guardian**: A persistent, unobtrusive status companion driven by a deterministic state machine and typed event bus (`companionEvents`), providing contextual feedback without blocking user interaction.
+- **Progressive Disclosure**: Three tiers of detail for every finding: Executive Insight (threat vector), Manual Remediation (human engineering steps), and AI Copilot Patch (ready-to-paste agent prompts).
 
 ---
 
@@ -299,13 +318,11 @@ LeakLens/
 │       └── src/
 │           ├── pipeline/  # 5-stage scan orchestration engine
 │           └── queue.ts   # pg-boss consumer and connection management
-├── packages/
-│   ├── shared/            # Pure scoring, fingerprinting, comparison, and schemas
-│   ├── security/          # Pinned-IP Undici client, SSRF guard, secret masking
-│   ├── detectors/         # Secret, CORS, .git, .env, and source map detectors
-│   └── kb/                # Remediation knowledge base and AI prompt templates
-└── docs/
-    └── design.md          # UI/UX design rationale and typography details
+└── packages/
+    ├── shared/            # Pure scoring, fingerprinting, comparison, and schemas
+    ├── security/          # Pinned-IP Undici client, SSRF guard, secret masking
+    ├── detectors/         # Secret, CORS, .git, .env, and source map detectors
+    └── kb/                # Remediation knowledge base and AI prompt templates
 ```
 
 ---
