@@ -36,7 +36,12 @@ async function request<T>(endpoint: string, options?: RequestInit): Promise<T> {
 
   if (!res.ok) {
     const errorBody = await res.json().catch(() => ({}));
-    throw new Error(errorBody.message || errorBody.error || `HTTP error ${res.status}`);
+    const retryHeader = res.headers.get("Retry-After");
+    const retryAfter = errorBody.retryAfter || (retryHeader ? parseInt(retryHeader, 10) : undefined);
+    const err: any = new Error(errorBody.message || errorBody.error || `HTTP error ${res.status}`);
+    err.status = res.status;
+    err.retryAfter = retryAfter;
+    throw err;
   }
 
   return res.json();
@@ -50,6 +55,7 @@ export const httpAdapter = {
         hostname: string;
         status: string;
         verifiedAt?: string | null;
+        expiresAt?: string | null;
         scanCount?: number;
         latestScore?: number | null;
         latestScanStatus?: string | null;
@@ -61,6 +67,7 @@ export const httpAdapter = {
       hostname: d.hostname,
       status: d.status,
       verifiedAt: d.verifiedAt,
+      expiresAt: d.expiresAt,
       scanCount: d.scanCount ?? 0,
       latestScore: d.latestScore ?? null,
       latestScanStatus: d.latestScanStatus ?? null,

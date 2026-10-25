@@ -1336,8 +1336,20 @@ footer { overflow: hidden; padding: 70px 32px 18px; color: #aaa; background: var
 .app-card > div > span { width: 42px; height: 42px; display: grid; place-items: center; color: white; background: var(--blue-deep); font: 500 12px "JetBrains Mono"; }
 .app-card h3 { margin: 12px 0 5px; font: 36px "Instrument Serif"; }
 .app-card code { color: var(--muted); font: 12px "JetBrains Mono"; }
-.app-card footer { display: flex; justify-content: space-between; margin-top: 55px; padding: 16px 0 0; color: var(--muted); background: transparent; border-top: 1px solid var(--hairline); font-size: 12px; }
+.app-card footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 55px; padding: 16px 0 0; color: var(--muted); background: transparent; border-top: 1px solid var(--hairline); font-size: 12px; }
 .app-card footer strong { color: var(--ink); }
+.app-card-score-col { display: flex; align-items: center; gap: 6px; }
+.app-card-score-text b { color: var(--ink); margin-left: 2px; }
+.rescan-button { display: inline-flex; align-items: center; gap: 5px; height: 32px; padding: 0 12px; font: 500 12px "JetBrains Mono"; background: var(--ink); color: white; border: 1px solid var(--ink); border-radius: 2px; cursor: pointer; transition: background 140ms ease, opacity 140ms ease; }
+.rescan-button:hover:not(:disabled) { background: var(--blue-deep); border-color: var(--blue-deep); }
+.rescan-button:disabled { opacity: 0.5; cursor: not-allowed; }
+.reverify-button, .verify-button { display: inline-flex; align-items: center; gap: 5px; height: 32px; padding: 0 12px; font: 500 12px "JetBrains Mono"; background: white; color: var(--ink); border: 1px solid var(--hairline); border-radius: 2px; cursor: pointer; }
+.reverify-button:hover, .verify-button:hover { border-color: var(--ink); }
+.score-delta { display: inline-block; margin-left: 8px; padding: 2px 6px; font: 600 11px "JetBrains Mono"; border-radius: 2px; }
+.score-delta.positive { color: var(--passed); background: rgba(46,125,79,.12); }
+.score-delta.negative { color: var(--critical); background: rgba(198,40,40,.12); }
+.score-delta.neutral { color: var(--muted); background: rgba(14,14,14,.06); }
+.app-card-rate-limit { display: flex; align-items: center; gap: 6px; margin-top: 12px; padding: 8px 12px; background: rgba(198,40,40,.06); border: 1px solid rgba(198,40,40,.2); color: var(--critical); font: 12px "JetBrains Mono"; border-radius: 2px; }
 .empty-app-card { display: grid; place-content: center; text-align: center; border-style: dashed; }
 .empty-app-card p { margin: 8px 0 15px; color: var(--muted); font-size: 13px; }
 .empty-app-card button { justify-self: center; border-bottom: 1px solid; font: 12px "JetBrains Mono"; }

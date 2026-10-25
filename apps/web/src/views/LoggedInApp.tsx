@@ -63,6 +63,9 @@ export function LoggedInApp({
   const [comparison, setComparison] = useState<RescanComparison | null>(null);
   const [verificationData, setVerificationData] = useState<api.VerificationChallenge | null>(null);
   const [isCheckingVerification, setIsCheckingVerification] = useState(false);
+  const [rescanLoading, setRescanLoading] = useState<Record<string, boolean>>({});
+  const [rateLimitErrors, setRateLimitErrors] = useState<Record<string, string>>({});
+  const [rescanDeltas, setRescanDeltas] = useState<Record<string, number>>({});
 
   const handleSaveProfile = async () => {
     if (!profileName.trim()) return;
@@ -339,6 +342,103 @@ export function LoggedInApp({
     } catch {
       setScanLoading(false);
       nav("failed");
+    }
+  };
+
+  const handleRescanApp = async (domain: UiDomain) => {
+    // Check if scan is already running for this app
+    const isRunning = scans.some(
+      (s) => (s.hostname === domain.hostname || s.id === activeScanId) && s.status === "running"
+    );
+    if (isRunning) return;
+
+    setRescanLoading((prev) => ({ ...prev, [domain.id]: true }));
+    setRateLimitErrors((prev) => {
+      const next = { ...prev };
+      delete next[domain.id];
+      return next;
+    });
+
+    try {
+      setUrl(domain.hostname);
+      setScanLoading(true);
+      nav("progress");
+      companionEvents.emit("scan_started", { url: domain.hostname, builder });
+
+      const created = await api.createScan(domain.hostname, {
+        authorized: true,
+        builder: builder === "Other / not sure" ? "Other" : (builder as any),
+      });
+
+      setActiveScanId(created.id);
+
+      let attempts = 0;
+      const maxAttempts = 60;
+      const interval = window.setInterval(async () => {
+        attempts++;
+        try {
+          const latest = await api.getScan(created.id);
+          if (latest.finishedAt !== "In progress") {
+            clearInterval(interval);
+            setScanLoading(false);
+            setRescanLoading((prev) => ({ ...prev, [domain.id]: false }));
+            setFindings(latest.findings);
+            setChecksRun(latest.checksRun.map((c) => [c.name, c.status, c.reason || ""]));
+            setActiveScanScore(latest.exposureScore);
+            setDetectedStack(latest.detectedStack || []);
+
+            // Score change delta versus previous scan
+            const prevScore = domain.latestScore ?? 100;
+            const newScore = latest.exposureScore;
+            const delta = newScore - prevScore;
+            setRescanDeltas((prev) => ({ ...prev, [domain.id]: delta }));
+
+            api.getScans().then(setScans).catch(() => {});
+            api.getDomains().then(setDomains).catch(() => {});
+            api.getRescanComparison(created.id).then(setComparison).catch(() => {});
+
+            const counts = {
+              critical: latest.findings.filter((f) => f.severity === "Critical").length,
+              high: latest.findings.filter((f) => f.severity === "High").length,
+              medium: latest.findings.filter((f) => f.severity === "Medium").length,
+              low: latest.findings.filter((f) => f.severity === "Low").length,
+            };
+            companionEvents.emit("scan_finished", {
+              severityCounts: counts,
+              score: latest.exposureScore,
+              couldNotTestCount: latest.checksRun.filter((c) => c.status === "Couldn't test").length,
+              clean: latest.findings.length === 0,
+            });
+            setScreen("results");
+          } else if (attempts >= maxAttempts) {
+            clearInterval(interval);
+            setScanLoading(false);
+            setRescanLoading((prev) => ({ ...prev, [domain.id]: false }));
+            nav("failed");
+          }
+        } catch {
+          if (attempts >= maxAttempts) {
+            clearInterval(interval);
+            setScanLoading(false);
+            setRescanLoading((prev) => ({ ...prev, [domain.id]: false }));
+            nav("failed");
+          }
+        }
+      }, 1000);
+    } catch (err: any) {
+      setScanLoading(false);
+      setRescanLoading((prev) => ({ ...prev, [domain.id]: false }));
+      if (err?.status === 429 || err?.retryAfter) {
+        const waitSec = err.retryAfter ? `${err.retryAfter}s` : "a few moments";
+        const msg = `Rate limit exceeded. Try again in ${waitSec}.`;
+        setRateLimitErrors((prev) => ({
+          ...prev,
+          [domain.id]: msg,
+        }));
+        setActionMessage(msg);
+      } else {
+        setActionMessage(err?.message || "Failed to start rescan.");
+      }
     }
   };
 
@@ -1081,38 +1181,125 @@ export function LoggedInApp({
                       <button onClick={() => nav("new")}>Add an app</button>
                     </div>
                   ) : (
-                    domains.map((d) => (
-                      <div
-                        className="app-card"
-                        key={d.id}
-                        style={{ cursor: "pointer" }}
-                        onClick={() => {
-                          setUrl(d.hostname);
-                          setHistoryFilter(d.hostname);
-                          nav("history");
-                        }}
-                      >
-                        <div>
-                          <span>{d.hostname.slice(0, 2).toUpperCase()}</span>
-                          <i className={`status-dot ${d.status === "verified" ? "verified" : "pending"}`} />
+                    domains.map((d) => {
+                      const isExpired =
+                        d.status === "expired" ||
+                        Boolean(d.expiresAt && new Date(d.expiresAt).getTime() <= Date.now());
+                      const isVerifiedActive = d.status === "verified" && !isExpired;
+                      const isRunning =
+                        scans.some(
+                          (s) =>
+                            Boolean(s.hostname && (s.hostname === d.hostname || s.hostname.includes(d.hostname))) &&
+                            s.status === "running"
+                        ) || Boolean(rescanLoading[d.id]);
+                      const isRescanning = Boolean(rescanLoading[d.id]);
+                      const delta =
+                        rescanDeltas[d.id] ??
+                        (d.recentScores && d.recentScores.length >= 2
+                          ? d.recentScores[0]! - d.recentScores[1]!
+                          : null);
+
+                      return (
+                        <div
+                          className="app-card"
+                          key={d.id}
+                          style={{ cursor: "pointer" }}
+                          onClick={() => {
+                            setUrl(d.hostname);
+                            setHistoryFilter(d.hostname);
+                            nav("history");
+                          }}
+                        >
+                          <div>
+                            <span>{d.hostname.slice(0, 2).toUpperCase()}</span>
+                            <i
+                              className={`status-dot ${
+                                isVerifiedActive ? "verified" : isExpired ? "expired" : "pending"
+                              }`}
+                            />
+                          </div>
+                          <MicroLabel>
+                            {isVerifiedActive
+                              ? "VERIFIED DOMAIN"
+                              : isExpired
+                                ? "VERIFICATION EXPIRED"
+                                : "PENDING VERIFICATION"}
+                          </MicroLabel>
+                          <h3>{d.hostname}</h3>
+                          <code>{d.scanCount ? `${d.scanCount} scan${d.scanCount > 1 ? "s" : ""} recorded` : "No scans yet"}</code>
+                          <footer>
+                            <div className="app-card-score-col">
+                              <span className="app-card-score-text">
+                                {d.latestScore !== null && d.latestScore !== undefined ? (
+                                  <>
+                                    Score: <b>{d.latestScore}/100</b>
+                                    {delta !== null && (
+                                      <span
+                                        className={`score-delta ${delta > 0 ? "positive" : delta < 0 ? "negative" : "neutral"}`}
+                                        title={`Score change: ${delta > 0 ? `+${delta}` : delta} vs prior scan`}
+                                      >
+                                        {delta > 0 ? `+${delta}` : delta}
+                                      </span>
+                                    )}
+                                  </>
+                                ) : isVerifiedActive ? (
+                                  "Verified — Ready to scan"
+                                ) : isExpired ? (
+                                  "Verification expired"
+                                ) : (
+                                  "Pending verification"
+                                )}
+                              </span>
+                            </div>
+                            <div className="app-card-btn-wrap" onClick={(e) => e.stopPropagation()}>
+                              {isVerifiedActive ? (
+                                <button
+                                  className="button rescan-button"
+                                  disabled={isRunning}
+                                  onClick={() => handleRescanApp(d)}
+                                  title={isRunning ? "A scan for this app is currently running" : "Start a rescan using last settings"}
+                                >
+                                  {isRescanning ? (
+                                    <>Starting...</>
+                                  ) : (
+                                    <>
+                                      <MaterialIcon>refresh</MaterialIcon> Rescan
+                                    </>
+                                  )}
+                                </button>
+                              ) : isExpired ? (
+                                <button
+                                  className="button reverify-button"
+                                  title="Verification expired, prove ownership again"
+                                  onClick={() => {
+                                    setUrl(d.hostname);
+                                    nav("verify");
+                                  }}
+                                >
+                                  Re-verify
+                                </button>
+                              ) : (
+                                <button
+                                  className="button verify-button"
+                                  onClick={() => {
+                                    setUrl(d.hostname);
+                                    nav("verify");
+                                  }}
+                                >
+                                  Verify
+                                </button>
+                              )}
+                            </div>
+                          </footer>
+                          {rateLimitErrors[d.id] && (
+                            <div className="app-card-rate-limit" onClick={(e) => e.stopPropagation()}>
+                              <MaterialIcon>timer</MaterialIcon>
+                              <span>{rateLimitErrors[d.id]}</span>
+                            </div>
+                          )}
                         </div>
-                        <MicroLabel>{d.status === "verified" ? "VERIFIED DOMAIN" : "PENDING VERIFICATION"}</MicroLabel>
-                        <h3>{d.hostname}</h3>
-                        <code>{d.scanCount ? `${d.scanCount} scan${d.scanCount > 1 ? "s" : ""} recorded` : "No scans yet"}</code>
-                        <footer>
-                          <span>
-                            {d.latestScore !== null && d.latestScore !== undefined
-                              ? `Score: ${d.latestScore}/100`
-                              : d.status === "verified"
-                                ? "Verified — Ready to scan"
-                                : "Pending verification"}
-                          </span>
-                          <strong>
-                            Scan history <MaterialIcon>arrow_forward</MaterialIcon>
-                          </strong>
-                        </footer>
-                      </div>
-                    ))
+                      );
+                    })
                   )}
                 </div>
               </section>

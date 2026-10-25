@@ -47,6 +47,7 @@ export interface UiDomain {
   hostname: string;
   status: string;
   verifiedAt?: string | null;
+  expiresAt?: string | null;
   scanCount?: number;
   latestScore?: number | null;
   latestScanStatus?: string | null;

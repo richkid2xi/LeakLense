@@ -228,6 +228,7 @@ export function createDomainsRouter(prismaClient?: PrismaClient): Router {
             hostname: d.hostname,
             status: d.status,
             verifiedAt: d.verifiedAt,
+            expiresAt: d.expiresAt,
             createdAt: d.createdAt,
             scanCount: d._count.scans,
             latestScore: latestScan?.exposureScore ?? null,
