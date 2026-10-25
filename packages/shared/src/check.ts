@@ -48,8 +48,18 @@ export const PLANNED_CHECKS = [
     category: "Storage",
   },
   {
-    id: "LL-CHECK-SENSITIVE-FILES",
-    title: "Reachable .env files, .git folders, source maps",
+    id: "LL-CHECK-ENV",
+    title: "Publicly reachable .env files",
+    category: "Configuration",
+  },
+  {
+    id: "LL-CHECK-GIT",
+    title: "Publicly reachable .git repository metadata",
+    category: "Configuration",
+  },
+  {
+    id: "LL-CHECK-SOURCEMAPS",
+    title: "Public production source maps",
     category: "Configuration",
   },
   {

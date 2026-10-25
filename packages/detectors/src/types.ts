@@ -7,6 +7,7 @@ export interface DetectorContext {
   fetchText: (url: string, init?: RequestInit) => Promise<SafeResponse>
   detectedTechnologies: string[]
   discoveredAssets: string[]
+  discoveredSourceMaps?: Array<{ sourceMapUrl: string; assetUrl: string }>
   html?: string
   responseHeaders?: Headers
 }

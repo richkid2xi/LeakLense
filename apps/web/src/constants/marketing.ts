@@ -53,7 +53,9 @@ export const coverageChecks = [
   "Supabase tables readable without logging in",
   "Missing row-level security on Supabase tables",
   "Public storage buckets",
-  "Reachable .env files, .git folders and source maps",
+  "Publicly reachable .env files",
+  "Publicly reachable .git repository metadata",
+  "Public production source maps",
   "Open Firebase database rules (when Firebase is detected)",
   "Overly permissive CORS settings",
 ];

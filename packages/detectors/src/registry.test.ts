@@ -10,8 +10,8 @@ import { detectTechnologies } from './technology'
 import { discoverPublicAssets, discoverSourceMap } from './discovery'
 
 describe('detector registry & coverage honesty (Amendment g)', () => {
-  it('registers all 7 planned checks', () => {
-    expect(ALL_DETECTORS.length).toBe(7)
+  it('registers all 9 planned checks (including split env, git, and sourcemaps)', () => {
+    expect(ALL_DETECTORS.length).toBe(9)
   })
 
   it('Supabase open tables reports could_not_test if Supabase detected, not_applicable if absent', async () => {
@@ -26,7 +26,7 @@ describe('detector registry & coverage honesty (Amendment g)', () => {
     const supaResult = await supabaseAnonDetector.run(contextWithSupa)
     expect(supaResult.status).toBe('could_not_test')
     expect(supaResult.status).not.toBe('passed')
-    expect(supaResult.reason).toContain('Phase 1')
+    expect(supaResult.reason).toContain('not yet supported')
 
     const contextWithoutSupa = { ...contextWithSupa, detectedTechnologies: [] }
     const noSupaResult = await supabaseAnonDetector.run(contextWithoutSupa)

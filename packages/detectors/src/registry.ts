@@ -1,13 +1,13 @@
 import type { CheckRunResult, Detector, DetectorContext } from './types'
 import { secretsDetector } from './secrets'
-import { sensitiveFilesDetector } from './sensitiveFiles'
+import { envDetector, gitDetector, sourceMapsDetector } from './sensitiveFiles'
 import { corsDetector } from './cors'
 
 /**
- * Phase 1 TODO Detectors (Amendment g: Coverage Honesty)
+ * Unimplemented Detectors (Coverage Honesty)
  *
  * The scanner pipeline must NEVER report fake passes for checks that are not yet implemented.
- * If a technology is detected, report `could_not_test` with a clear explanation.
+ * If a technology is detected, report `could_not_test` with a clear explanation ("Not yet supported").
  * If the technology is absent, report `not_applicable`.
  */
 
@@ -22,8 +22,7 @@ export const supabaseAnonDetector: Detector = {
         checkId: 'LL-CHECK-SUPA-ANON',
         title: 'Supabase tables readable without login',
         status: 'could_not_test',
-        reason:
-          'Supabase detected; public anonymous table reading inspection is planned for Phase 1 and requires an active provider adapter.',
+        reason: 'Supabase detected; public anonymous table reading inspection is not yet supported.',
         findings: [],
       }
     }
@@ -48,8 +47,7 @@ export const supabaseRlsDetector: Detector = {
         checkId: 'LL-CHECK-SUPA-RLS',
         title: 'Missing row-level security on Supabase tables',
         status: 'could_not_test',
-        reason:
-          'Supabase detected; table RLS inspection is planned for Phase 1 and requires an active provider adapter.',
+        reason: 'Supabase detected; table RLS inspection is not yet supported.',
         findings: [],
       }
     }
@@ -72,8 +70,7 @@ export const storageDetector: Detector = {
       checkId: 'LL-CHECK-STORAGE',
       title: 'Public storage buckets',
       status: 'could_not_test',
-      reason:
-        'Cloud storage bucket enumeration is planned for Phase 1 and requires an active provider adapter.',
+      reason: 'Cloud storage bucket enumeration is not yet supported.',
       findings: [],
     }
   },
@@ -90,8 +87,7 @@ export const firebaseDetector: Detector = {
         checkId: 'LL-CHECK-FIREBASE',
         title: 'Open Firebase database rules (when Firebase is detected)',
         status: 'could_not_test',
-        reason:
-          'Firebase detected; database rules inspection is planned for Phase 1 and requires an active provider adapter.',
+        reason: 'Firebase detected; database rules inspection is not yet supported.',
         findings: [],
       }
     }
@@ -110,7 +106,9 @@ export const firebaseDetector: Detector = {
  */
 export const ALL_DETECTORS: Detector[] = [
   secretsDetector,
-  sensitiveFilesDetector,
+  envDetector,
+  gitDetector,
+  sourceMapsDetector,
   corsDetector,
   supabaseAnonDetector,
   supabaseRlsDetector,

@@ -41,7 +41,7 @@ describe('scan pipeline engine', () => {
       }
 
       if (url === 'https://example.com/assets/app.js.map') {
-        const body = '{"version":3,"file":"app.js","sources":["app.ts"]}'
+        const body = '{"version":3,"file":"app.js","sources":["app.ts"],"mappings":"AAAA"}'
         return {
           status: 200,
           headers: new Headers({ 'content-type': 'application/json' }),

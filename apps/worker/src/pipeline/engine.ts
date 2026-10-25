@@ -66,7 +66,7 @@ export async function runScan(
     limits.maxAssets,
   )
   const assetBodies: string[] = []
-  let sourceMapFound = false
+  const discoveredSourceMaps: Array<{ sourceMapUrl: string; assetUrl: string }> = []
 
   for (const assetUrl of assetUrls) {
     if (bytesRead >= limits.maxTotalBytes) break
@@ -78,59 +78,7 @@ export async function runScan(
 
       const sourceMapUrl = discoverSourceMap(asset.body, assetUrl, verifiedHostname)
       if (sourceMapUrl) {
-        try {
-          const mapResponse = await fetcher(sourceMapUrl, verifiedHostname, {
-            ...limits,
-            maxResponseBytes: 200_000,
-          })
-          requestsMade += 1
-          bytesRead += mapResponse.bytes
-          if (mapResponse.status === 200 && mapResponse.body.trim().length > 0) {
-            sourceMapFound = true
-            findings.push({
-              id: `finding-sourcemap-${assetUrl.slice(-12)}`,
-              type: 'LL-FILE-SOURCEMAP',
-              ruleVersion: '1.0.0',
-              severity: 'medium',
-              confidence: 'confirmed',
-              status: 'open',
-              location: sourceMapUrl,
-              title: 'Production source map is publicly reachable',
-              meaning:
-                'The server exposes an unminified JavaScript source map (.map) alongside production assets.',
-              why: 'Source maps allow anyone to inspect the original source code, internal comments, type signatures, and development-time secrets.',
-              maskedEvidence: {
-                location: sourceMapUrl,
-                summary: `Publicly reachable source map discovered via sourceMappingURL in ${assetUrl}`,
-                kind: 'file',
-              },
-              technicalSteps: [
-                'Disable source map generation for production builds in your bundler (Vite, Next.js, Webpack).',
-                'If source maps are needed for error monitoring (e.g. Sentry), upload them privately during CI/CD and delete them from public web deployment folders.',
-              ],
-              steps: [
-                'Disable source map generation for production builds in your bundler (Vite, Next.js, Webpack).',
-                'If source maps are needed for error monitoring (e.g. Sentry), upload them privately during CI/CD and delete them from public web deployment folders.',
-              ],
-              verificationSteps: [
-                `Verify that requesting ${sourceMapUrl} returns 404 Not Found.`,
-                'Run a new LeakLens scan.',
-              ],
-              references: [
-                {
-                  title: 'OWASP: Source Code Disclosure via Source Maps',
-                  url: 'https://cheatsheetseries.owasp.org/cheatsheets/Source_Map_Security_Cheat_Sheet.html',
-                },
-              ],
-              metadata: {
-                assetUrl,
-                sourceMapUrl,
-              },
-            })
-          }
-        } catch {
-          // Failure to fetch a source map is non-fatal
-        }
+        discoveredSourceMaps.push({ sourceMapUrl, assetUrl })
       }
     } catch {
       // Individual asset fetch failure does not abort scan
@@ -174,6 +122,7 @@ export async function runScan(
     },
     detectedTechnologies: detectedStack,
     discoveredAssets: assetUrls,
+    discoveredSourceMaps,
     html: page.body,
     responseHeaders: corsHeaders ?? page.headers,
   }
@@ -215,15 +164,6 @@ export async function runScan(
       })
     }
   }
-
-  // Record source maps check result
-  checks.push({
-    id: 'public-source-maps',
-    checkId: 'public-source-maps',
-    label: 'Public production source maps',
-    title: 'Public production source maps',
-    status: sourceMapFound ? 'issue_found' : 'passed',
-  })
 
   // 7. Calculate exposure score
   const severityPenalties: Record<string, number> = {
