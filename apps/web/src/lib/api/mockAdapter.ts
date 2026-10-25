@@ -150,10 +150,14 @@ export const initialMockChecksRun: UiCheckRun[] = [
   { name: "CORS configuration", status: "Couldn't test", reason: "API did not return CORS headers" },
 ];
 
+const nowIso = new Date().toISOString();
+const weekAgoIso = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+const monthAgoIso = new Date(Date.now() - 35 * 24 * 60 * 60 * 1000).toISOString();
+
 export const initialMockScans: UiScanSummary[] = [
-  { id: "LL-2025-031", hostname: "acme-notes.app", date: "Today, 10:42", score: "62", scoreNumber: 62, trend: [40, 48, 55, 62], status: "complete" },
-  { id: "LL-2025-024", hostname: "acme-notes.app", date: "Mar 18, 16:08", score: "41", scoreNumber: 41, trend: [32, 38, 41], status: "complete" },
-  { id: "LL-2025-018", hostname: "acme-notes.app", date: "Mar 12, 09:21", score: "—", scoreNumber: 0, trend: [0], status: "failed" },
+  { id: "LL-2025-031", hostname: "acme-notes.app", date: "Today, 10:42", startedAt: nowIso, findingCount: 4, score: "62", scoreNumber: 62, trend: [40, 48, 55, 62], status: "complete" },
+  { id: "LL-2025-024", hostname: "acme-notes.app", date: "Mar 18, 16:08", startedAt: weekAgoIso, findingCount: 6, score: "41", scoreNumber: 41, trend: [32, 38, 41], status: "complete" },
+  { id: "LL-2025-018", hostname: "acme-notes.app", date: "Mar 12, 09:21", startedAt: monthAgoIso, findingCount: 0, score: "—", scoreNumber: 0, trend: [0], status: "failed" },
 ];
 
 // In-memory mock state store

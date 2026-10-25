@@ -87,10 +87,13 @@ export const httpAdapter = {
       scans: Array<{
         id: string;
         startedAt?: string | null;
+        finishedAt?: string | null;
         createdAt?: string;
         exposureScore?: number | null;
         status: string;
         domain?: { hostname: string };
+        _count?: { findings: number };
+        findings?: any[];
       }>;
     }>("/scans");
     return data.scans.map((s) => {
@@ -111,6 +114,9 @@ export const httpAdapter = {
           day: "numeric",
           year: "numeric",
         }),
+        startedAt: s.startedAt || s.createdAt || undefined,
+        finishedAt: s.finishedAt || undefined,
+        findingCount: s._count?.findings ?? (Array.isArray(s.findings) ? s.findings.length : undefined),
         score: s.exposureScore != null ? String(s.exposureScore) : "100",
         scoreNumber: scoreNum,
         trend: [scoreNum],

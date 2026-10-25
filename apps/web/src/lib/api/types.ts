@@ -25,6 +25,9 @@ export interface UiScanSummary {
   id: string;
   hostname?: string;
   date: string;
+  startedAt?: string;
+  finishedAt?: string;
+  findingCount?: number;
   score: string;
   scoreNumber: number;
   trend: number[];

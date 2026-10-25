@@ -13,6 +13,7 @@ import { FindingDrawer, severityClass } from "../components/drawers/FindingDrawe
 import { LegalDocument, LegalModal } from "../components/modals/LegalModal";
 import { validateScanUrl } from "../components/marketing/UrlForm";
 import { supabase } from "../lib/supabase";
+import { CustomDropdown } from "../components/common/CustomDropdown";
 
 export type Screen = "new" | "verify" | "progress" | "results" | "history" | "apps" | "compare" | "settings" | "failed";
 
@@ -55,7 +56,51 @@ export function LoggedInApp({
   const [domains, setDomains] = useState<UiDomain[]>([]);
   const [user, setUser] = useState<{ email: string; name: string } | null>(null);
   const [profileName, setProfileName] = useState("");
-  const [historyFilter, setHistoryFilter] = useState<string>("all");
+  const initialParams = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : null;
+  const [appFilter, setAppFilter] = useState<string>(initialParams?.get("app") || "all");
+  const [resultFilter, setResultFilter] = useState<string>(initialParams?.get("result") || "all");
+  const [dateFilter, setDateFilter] = useState<string>(initialParams?.get("date") || "all");
+
+  const updateFilter = (type: "app" | "result" | "date", val: string) => {
+    const nextApp = type === "app" ? val : appFilter;
+    const nextResult = type === "result" ? val : resultFilter;
+    const nextDate = type === "date" ? val : dateFilter;
+
+    if (type === "app") setAppFilter(val);
+    if (type === "result") setResultFilter(val);
+    if (type === "date") setDateFilter(val);
+
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      if (nextApp && nextApp !== "all") params.set("app", nextApp);
+      else params.delete("app");
+
+      if (nextResult && nextResult !== "all") params.set("result", nextResult);
+      else params.delete("result");
+
+      if (nextDate && nextDate !== "all") params.set("date", nextDate);
+      else params.delete("date");
+
+      const query = params.toString();
+      const newUrl = query ? `${window.location.pathname}?${query}` : window.location.pathname;
+      window.history.replaceState(null, "", newUrl);
+    }
+  };
+
+  const handleClearFilters = () => {
+    setAppFilter("all");
+    setResultFilter("all");
+    setDateFilter("all");
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      params.delete("app");
+      params.delete("result");
+      params.delete("date");
+      const query = params.toString();
+      const newUrl = query ? `${window.location.pathname}?${query}` : window.location.pathname;
+      window.history.replaceState(null, "", newUrl);
+    }
+  };
   const [activeScanId, setActiveScanId] = useState<string | null>(null);
   const [activeScanScore, setActiveScanScore] = useState<number | null>(null);
   const [detectedStack, setDetectedStack] = useState<string[]>([]);
@@ -159,10 +204,46 @@ export function LoggedInApp({
       (severityFilter === "All" || f.severity === severityFilter) &&
       (statusFilter === "All" || f.status === statusFilter)
   );
-  const visibleScans =
-    historyFilter === "all"
-      ? scans
-      : scans.filter((s) => Boolean(s.hostname && (s.hostname === historyFilter || s.hostname.includes(historyFilter))));
+  const visibleScans = scans.filter((s) => {
+    // 1. App filter
+    if (appFilter !== "all") {
+      if (s.hostname !== appFilter && !s.hostname?.includes(appFilter)) return false;
+    }
+
+    // 2. Result filter
+    if (resultFilter === "issues") {
+      if (s.status === "failed") return false;
+      const hasIssues = s.scoreNumber < 100 || (s.findingCount != null && s.findingCount > 0);
+      if (!hasIssues) return false;
+    } else if (resultFilter === "no_issues") {
+      if (s.status !== "complete") return false;
+      const isClean = s.scoreNumber === 100 && (s.findingCount == null || s.findingCount === 0);
+      if (!isClean) return false;
+    } else if (resultFilter === "could_not_complete") {
+      if (s.status !== "failed") return false;
+    }
+
+    // 3. Date filter
+    if (dateFilter !== "all") {
+      const scanDate = s.startedAt ? new Date(s.startedAt) : new Date(s.date);
+      const scanTime = scanDate.getTime();
+      if (!isNaN(scanTime)) {
+        const now = new Date();
+        if (dateFilter === "today") {
+          const todayMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+          if (scanTime < todayMidnight) return false;
+        } else if (dateFilter === "7d") {
+          const cutoff = Date.now() - 7 * 24 * 60 * 60 * 1000;
+          if (scanTime < cutoff) return false;
+        } else if (dateFilter === "30d") {
+          const cutoff = Date.now() - 30 * 24 * 60 * 60 * 1000;
+          if (scanTime < cutoff) return false;
+        }
+      }
+    }
+
+    return true;
+  });
   const fixedCount = findings.filter((f) => f.status === "Fixed").length;
   const securityScore =
     activeScanScore ??
@@ -1051,50 +1132,82 @@ export function LoggedInApp({
               <section className="app-screen">
                 <div className="app-page-title row-title">
                   <div>
-                    <MicroLabel>APPS / {(historyFilter !== "all" ? historyFilter : appDisplay || "ALL APPS").toUpperCase()}</MicroLabel>
+                    <MicroLabel>APPS / {(appFilter !== "all" ? appFilter : appDisplay || "ALL APPS").toUpperCase()}</MicroLabel>
                     <h1>Scan history.</h1>
                   </div>
                   <button className="button primary" onClick={() => nav("new")}>
                     New scan <Arrow />
                   </button>
                 </div>
-                {domains.length > 1 && (
-                  <div className="table-toolbar" style={{ marginBottom: 16 }}>
-                    <div className="filter-group">
-                      <button className={historyFilter === "all" ? "active" : ""} onClick={() => setHistoryFilter("all")}>
-                        All Scans ({scans.length})
-                      </button>
-                      {domains.map((d) => (
-                        <button
-                          key={d.id}
-                          className={historyFilter === d.hostname ? "active" : ""}
-                          onClick={() => setHistoryFilter(d.hostname)}
-                        >
-                          {d.hostname} ({scans.filter((s) => s.hostname === d.hostname).length})
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
+
+                <div className="table-toolbar scans-filter-toolbar" style={{ display: "flex", gap: "12px", alignItems: "flex-end", flexWrap: "wrap", marginBottom: "20px" }}>
+                  <CustomDropdown
+                    label="App"
+                    value={appFilter}
+                    options={[
+                      { value: "all", label: "All apps" },
+                      ...domains
+                        .filter((d) => d.status === "verified" || Boolean(d.verifiedAt))
+                        .map((d) => ({
+                          value: d.hostname,
+                          label: d.hostname,
+                        })),
+                    ]}
+                    onChange={(val) => updateFilter("app", val)}
+                    ariaLabel="Filter by app"
+                  />
+                  <CustomDropdown
+                    label="Result"
+                    value={resultFilter}
+                    options={[
+                      { value: "all", label: "All" },
+                      { value: "issues", label: "Issues found" },
+                      { value: "no_issues", label: "No issues found" },
+                      { value: "could_not_complete", label: "Could not complete" },
+                    ]}
+                    onChange={(val) => updateFilter("result", val)}
+                    ariaLabel="Filter by result"
+                  />
+                  <CustomDropdown
+                    label="Date"
+                    value={dateFilter}
+                    options={[
+                      { value: "all", label: "All time" },
+                      { value: "today", label: "Today" },
+                      { value: "7d", label: "Last 7 days" },
+                      { value: "30d", label: "Last 30 days" },
+                    ]}
+                    onChange={(val) => updateFilter("date", val)}
+                    ariaLabel="Filter by date"
+                  />
+                  {(appFilter !== "all" || resultFilter !== "all" || dateFilter !== "all") && (
+                    <button
+                      type="button"
+                      className="text-action clear-filters-btn"
+                      onClick={handleClearFilters}
+                      style={{
+                        marginBottom: "8px",
+                        cursor: "pointer",
+                      }}
+                    >
+                      Clear filters
+                    </button>
+                  )}
+                </div>
+
                 {visibleScans.length === 0 ? (
                   <div className="empty-state">
                     <MicroLabel>{scans.length === 0 ? "NO SCANS YET" : "NO MATCHING SCANS"}</MicroLabel>
                     <p>
                       {scans.length === 0
                         ? "No scans recorded yet. Run your first read-only scan to see historical reports and exposure trends."
-                        : `No scans recorded for ${historyFilter}.`}
+                        : "No scans match the selected filters."}
                     </p>
-                    <button
-                      onClick={() => {
-                        if (historyFilter !== "all") {
-                          setHistoryFilter("all");
-                        } else {
-                          nav("new");
-                        }
-                      }}
-                    >
-                      {historyFilter !== "all" ? "View all scans" : "Run first scan"}
-                    </button>
+                    {scans.length === 0 ? (
+                      <button onClick={() => nav("new")}>Run first scan</button>
+                    ) : (
+                      <button onClick={handleClearFilters}>Clear filters</button>
+                    )}
                   </div>
                 ) : (
                   <>
@@ -1206,7 +1319,7 @@ export function LoggedInApp({
                           style={{ cursor: "pointer" }}
                           onClick={() => {
                             setUrl(d.hostname);
-                            setHistoryFilter(d.hostname);
+                            updateFilter("app", d.hostname);
                             nav("history");
                           }}
                         >
