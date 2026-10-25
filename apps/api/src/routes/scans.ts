@@ -312,12 +312,12 @@ export function createScansRouter(
 
         let afterScan = userScans[0]!
         if (scanId) {
-          const matched = userScans.find((s) => s.id === scanId)
+          const matched = userScans.find((s: any) => s.id === scanId)
           if (matched) afterScan = matched
         }
 
         const beforeScan = userScans.find(
-          (s) => s.id !== afterScan.id && s.domainId === afterScan.domainId && s.status === 'completed',
+          (s: any) => s.id !== afterScan.id && s.domainId === afterScan.domainId && s.status === 'completed',
         )
 
         const afterDate = afterScan.finishedAt || afterScan.createdAt

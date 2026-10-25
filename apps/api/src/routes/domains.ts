@@ -221,7 +221,7 @@ export function createDomainsRouter(prismaClient?: PrismaClient): Router {
           },
         })
 
-        const formatted = domains.map((d) => {
+        const formatted = domains.map((d: any) => {
           const latestScan = d.scans[0]
           return {
             id: d.id,
@@ -233,7 +233,7 @@ export function createDomainsRouter(prismaClient?: PrismaClient): Router {
             scanCount: d._count.scans,
             latestScore: latestScan?.exposureScore ?? null,
             latestScanStatus: latestScan?.status ?? null,
-            recentScores: d.scans.map((s) => s.exposureScore).filter((s): s is number => s !== null),
+            recentScores: d.scans.map((s: any) => s.exposureScore).filter((s: any): s is number => s !== null),
           }
         })
 
@@ -355,15 +355,15 @@ export function createDomainsRouter(prismaClient?: PrismaClient): Router {
           },
         })
 
-        const formattedScans = scans.map((s) => {
+        const formattedScans = scans.map((s: any) => {
           const countsBySeverity = {
-            critical: s.findings.filter((f) => f.severity.toLowerCase() === 'critical').length,
-            high: s.findings.filter((f) => f.severity.toLowerCase() === 'high').length,
-            medium: s.findings.filter((f) => f.severity.toLowerCase() === 'medium').length,
-            low: s.findings.filter((f) => f.severity.toLowerCase() === 'low').length,
+            critical: s.findings.filter((f: any) => f.severity.toLowerCase() === 'critical').length,
+            high: s.findings.filter((f: any) => f.severity.toLowerCase() === 'high').length,
+            medium: s.findings.filter((f: any) => f.severity.toLowerCase() === 'medium').length,
+            low: s.findings.filter((f: any) => f.severity.toLowerCase() === 'low').length,
           }
           const couldNotTestCount = s.checkRuns.filter(
-            (c) => c.status.toLowerCase().replace(/['\s_-]/g, '') === 'couldnottest',
+            (c: any) => c.status.toLowerCase().replace(/['\s_-]/g, '') === 'couldnottest',
           ).length
 
           const startedAt = s.startedAt ? s.startedAt.toISOString() : s.createdAt.toISOString()
