@@ -156,7 +156,11 @@ describe('processScanJob & queue', () => {
       mockScanRunner,
     )
 
-    expect(mockScanRunner).toHaveBeenCalledWith('https://example.com', 'example.com')
+    expect(mockScanRunner).toHaveBeenCalledWith(
+      'https://example.com',
+      'example.com',
+      expect.objectContaining({ onProgress: expect.any(Function) }),
+    )
     expect(prisma.checkRun.create).toHaveBeenCalledTimes(1)
     expect(prisma.finding.create).toHaveBeenCalledTimes(1)
     expect(prisma.scan.update).toHaveBeenCalledWith(

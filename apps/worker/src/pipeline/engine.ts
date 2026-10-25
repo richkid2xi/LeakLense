@@ -30,6 +30,7 @@ export type FetchFunction = (
 export interface RunScanOptions {
   customLimits?: Partial<ScanLimits>
   customFetcher?: FetchFunction
+  onProgress?: (stage: string, stepIndex: number) => Promise<void> | void
 }
 
 /**
@@ -58,11 +59,13 @@ export async function runScan(
   const checks: CheckResult[] = []
 
   // 1. Fetch primary target page
+  await options.onProgress?.('Fetching app', 0)
   const page = await fetcher(target, verifiedHostname, limits)
   bytesRead += page.bytes
   requestsMade += 1
 
   // 2. Discover JavaScript assets scope-locked to verifiedHostname
+  await options.onProgress?.('Reading bundle', 1)
   const assetUrls = discoverPublicAssets(page.body, page.url, verifiedHostname).slice(
     0,
     limits.maxAssets,
@@ -88,6 +91,7 @@ export async function runScan(
   }
 
   // 3. Passive technology stack identification
+  await options.onProgress?.('Checking Supabase', 2)
   const detectedStack = detectTechnologies(page.body, assetBodies, page.headers)
 
   // 4. Perform CORS preflight check
@@ -130,6 +134,7 @@ export async function runScan(
   }
 
   // 6. Run all registered detectors
+  await options.onProgress?.('Checking storage', 3)
   for (const detector of ALL_DETECTORS) {
     if (detector.appliesTo && !detector.appliesTo(context)) {
       checks.push({
@@ -168,6 +173,7 @@ export async function runScan(
   }
 
   // 7. Calculate exposure score using pure computeExposureScore
+  await options.onProgress?.('Building report', 4)
   const scoreResult = computeExposureScore(findings, checks)
   const exposureScore = scoreResult.score
 

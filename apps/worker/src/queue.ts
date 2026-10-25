@@ -13,9 +13,12 @@ export interface RunScanJobData {
 }
 
 export async function createWorkerQueue(connectionString?: string): Promise<PgBoss> {
+  const conn =
+    connectionString || process.env.DATABASE_URL || 'postgres://localhost:5432/leaklens'
+  const isSsl = conn.includes('sslmode=require') || conn.includes('supabase.com')
   const boss = new PgBoss({
-    connectionString:
-      connectionString || process.env.DATABASE_URL || 'postgres://localhost:5432/leaklens',
+    connectionString: conn,
+    ssl: isSsl ? { rejectUnauthorized: false } : undefined,
   })
 
   boss.on('error', error => {
@@ -89,8 +92,24 @@ export async function processScanJob(
   })
 
   try {
-    // 3. Execute scan engine
-    const result = await scanRunner(target, verifiedHostname)
+    // 3. Execute scan engine with stage tracking
+    const onProgress = async (stage: string, stepIndex: number) => {
+      try {
+        await prisma.scan.update({
+          where: { id: scanId },
+          data: {
+            metrics: {
+              stage,
+              stepIndex,
+            },
+          },
+        })
+      } catch {
+        // Non-blocking progress update
+      }
+    }
+
+    const result = await scanRunner(target, verifiedHostname, { onProgress })
 
     // 4. Persist check runs
     for (const check of result.checks) {

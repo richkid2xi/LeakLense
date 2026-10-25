@@ -158,6 +158,8 @@ export const httpAdapter = {
       exposureScore,
       detectedStack: data.scan.detectedStack || [],
       findings,
+      status: data.scan.status,
+      metrics: data.scan.metrics,
       checksRun: (data.checksRun || []).map((c: any) => ({
         name: c.title,
         status:

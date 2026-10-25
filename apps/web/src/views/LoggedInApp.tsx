@@ -169,6 +169,7 @@ export function LoggedInApp({
   const [comparisonResult, setComparisonResult] = useState<api.CompareScansResponse | null>(null);
   const [isComparing, setIsComparing] = useState<boolean>(false);
   const [isRescanningFromCompare, setIsRescanningFromCompare] = useState<boolean>(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState<boolean>(false);
 
   const handleSaveProfile = async () => {
     if (!profileName.trim()) return;
@@ -315,19 +316,112 @@ export function LoggedInApp({
       });
   }, [screen, beforeScanId, afterScanId]);
 
+  const nav = (next: Screen) => {
+    setScreen(next);
+    setSelected(null);
+    setMobileMenuOpen(false);
+  };
+
+  useEffect(() => {
+    if (!mobileMenuOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setMobileMenuOpen(false);
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [mobileMenuOpen]);
+
+  const trackScanProgress = (
+    scanId: string,
+    onSuccess?: (latest: api.UiScanDetail) => void,
+    onFailure?: (msg?: string) => void
+  ) => {
+    setProgress(0);
+    let attempts = 0;
+    const maxAttempts = 60;
+    const interval = window.setInterval(async () => {
+      attempts++;
+      try {
+        const latest = await api.getScan(scanId);
+        const isDone =
+          latest.status === "completed" ||
+          (latest.finishedAt && latest.finishedAt !== "In progress");
+        const isFailed = latest.status === "failed";
+
+        if (isDone) {
+          clearInterval(interval);
+          setProgress(scanSteps.length);
+          setTimeout(() => {
+            setScanLoading(false);
+            setFindings(latest.findings);
+            setChecksRun(latest.checksRun.map((c) => [c.name, c.status, c.reason || ""]));
+            setActiveScanScore(latest.exposureScore);
+            setDetectedStack(latest.detectedStack || []);
+
+            api.getScans().then(setScans).catch(() => {});
+            api.getDomains().then(setDomains).catch(() => {});
+
+            const counts = {
+              critical: latest.findings.filter((f) => f.severity === "Critical").length,
+              high: latest.findings.filter((f) => f.severity === "High").length,
+              medium: latest.findings.filter((f) => f.severity === "Medium").length,
+              low: latest.findings.filter((f) => f.severity === "Low").length,
+            };
+            companionEvents.emit("scan_finished", {
+              severityCounts: counts,
+              score: latest.exposureScore,
+              couldNotTestCount: latest.checksRun.filter((c) => c.status === "Couldn't test").length,
+              clean: latest.findings.length === 0,
+            });
+
+            if (onSuccess) onSuccess(latest);
+            setScreen("results");
+          }, 350);
+        } else if (isFailed) {
+          clearInterval(interval);
+          setScanLoading(false);
+          if (onFailure) onFailure("Scan execution failed.");
+          nav("failed");
+        } else {
+          // Live stage tracking: use real stage reported by worker or progress based on check completion
+          if (latest.metrics?.stepIndex != null) {
+            const liveStep = Math.min(Math.max(latest.metrics.stepIndex, 0), scanSteps.length - 1);
+            setProgress(liveStep);
+            companionEvents.emit("scan_step_changed", {
+              stepIndex: liveStep,
+              stepName: scanSteps[liveStep] || "",
+              stepMessage: scanMessages[liveStep] || "",
+            });
+          } else {
+            // Checks completed fallback
+            const checksCount = latest.checksRun?.length ?? 0;
+            const computedStep = checksCount > 0 ? 3 : 1;
+            setProgress(computedStep);
+          }
+        }
+      } catch (err: any) {
+        if (attempts >= maxAttempts) {
+          clearInterval(interval);
+          setScanLoading(false);
+          if (onFailure) onFailure(err?.message);
+          nav("failed");
+        }
+      }
+    }, 1000);
+  };
+
   const handleRunRescanFromCompare = async () => {
     const targetDomain = domains.find((d) => d.id === compareDomainId) || domains[0];
     if (!targetDomain) return;
     try {
       setIsRescanningFromCompare(true);
-      const scanDetail = await api.createScan(targetDomain.hostname, { authorized: true });
       setUrl(targetDomain.hostname);
-      setActiveScanId(scanDetail.id);
-      setFindings(scanDetail.findings);
-      setChecksRun(scanDetail.checksRun.map((c) => [c.name, c.status, c.reason || ""]));
-      setActiveScanScore(scanDetail.exposureScore);
-      setDetectedStack(scanDetail.detectedStack || []);
+      setScanLoading(true);
       nav("progress");
+      companionEvents.emit("scan_started", { url: targetDomain.hostname, builder });
+      const created = await api.createScan(targetDomain.hostname, { authorized: true });
+      setActiveScanId(created.id);
+      trackScanProgress(created.id);
     } catch (err: any) {
       setActionMessage(err.message || "Failed to start rescan.");
     } finally {
@@ -451,21 +545,9 @@ export function LoggedInApp({
 
   useEffect(() => {
     if (screen !== "progress") return;
-    setProgress(0);
     setElapsed(0);
     const timer = window.setInterval(() => {
       setElapsed((e) => e + 1);
-      setProgress((p) => {
-        const next = Math.min(p + 1, scanSteps.length);
-        if (next < scanSteps.length) {
-          companionEvents.emit("scan_step_changed", {
-            stepIndex: next,
-            stepName: scanSteps[next] || "",
-            stepMessage: scanMessages[next] || "",
-          });
-        }
-        return next;
-      });
     }, 1000);
     return () => clearInterval(timer);
   }, [screen]);
@@ -511,52 +593,10 @@ export function LoggedInApp({
       });
 
       setActiveScanId(created.id);
-
-      let attempts = 0;
-      const maxAttempts = 60;
-      const interval = window.setInterval(async () => {
-        attempts++;
-        try {
-          const latest = await api.getScan(created.id);
-          if (latest.finishedAt !== "In progress") {
-            clearInterval(interval);
-            setScanLoading(false);
-            setFindings(latest.findings);
-            setChecksRun(latest.checksRun.map((c) => [c.name, c.status, c.reason || ""]));
-            setActiveScanScore(latest.exposureScore);
-            setDetectedStack(latest.detectedStack || []);
-
-            api.getScans().then(setScans).catch(() => {});
-            api.getDomains().then(setDomains).catch(() => {});
-
-            const counts = {
-              critical: latest.findings.filter((f) => f.severity === "Critical").length,
-              high: latest.findings.filter((f) => f.severity === "High").length,
-              medium: latest.findings.filter((f) => f.severity === "Medium").length,
-              low: latest.findings.filter((f) => f.severity === "Low").length,
-            };
-            companionEvents.emit("scan_finished", {
-              severityCounts: counts,
-              score: latest.exposureScore,
-              couldNotTestCount: latest.checksRun.filter((c) => c.status === "Couldn't test").length,
-              clean: latest.findings.length === 0,
-            });
-            setScreen("results");
-          } else if (attempts >= maxAttempts) {
-            clearInterval(interval);
-            setScanLoading(false);
-            nav("failed");
-          }
-        } catch {
-          if (attempts >= maxAttempts) {
-            clearInterval(interval);
-            setScanLoading(false);
-            nav("failed");
-          }
-        }
-      }, 1000);
-    } catch {
+      trackScanProgress(created.id);
+    } catch (err: any) {
       setScanLoading(false);
+      setActionMessage(err?.message || "Failed to start scan.");
       nav("failed");
     }
   };
@@ -587,59 +627,19 @@ export function LoggedInApp({
       });
 
       setActiveScanId(created.id);
-
-      let attempts = 0;
-      const maxAttempts = 60;
-      const interval = window.setInterval(async () => {
-        attempts++;
-        try {
-          const latest = await api.getScan(created.id);
-          if (latest.finishedAt !== "In progress") {
-            clearInterval(interval);
-            setScanLoading(false);
-            setRescanLoading((prev) => ({ ...prev, [domain.id]: false }));
-            setFindings(latest.findings);
-            setChecksRun(latest.checksRun.map((c) => [c.name, c.status, c.reason || ""]));
-            setActiveScanScore(latest.exposureScore);
-            setDetectedStack(latest.detectedStack || []);
-
-            // Score change delta versus previous scan
-            const prevScore = domain.latestScore ?? 100;
-            const newScore = latest.exposureScore;
-            const delta = newScore - prevScore;
-            setRescanDeltas((prev) => ({ ...prev, [domain.id]: delta }));
-
-            api.getScans().then(setScans).catch(() => {});
-            api.getDomains().then(setDomains).catch(() => {});
-
-            const counts = {
-              critical: latest.findings.filter((f) => f.severity === "Critical").length,
-              high: latest.findings.filter((f) => f.severity === "High").length,
-              medium: latest.findings.filter((f) => f.severity === "Medium").length,
-              low: latest.findings.filter((f) => f.severity === "Low").length,
-            };
-            companionEvents.emit("scan_finished", {
-              severityCounts: counts,
-              score: latest.exposureScore,
-              couldNotTestCount: latest.checksRun.filter((c) => c.status === "Couldn't test").length,
-              clean: latest.findings.length === 0,
-            });
-            setScreen("results");
-          } else if (attempts >= maxAttempts) {
-            clearInterval(interval);
-            setScanLoading(false);
-            setRescanLoading((prev) => ({ ...prev, [domain.id]: false }));
-            nav("failed");
-          }
-        } catch {
-          if (attempts >= maxAttempts) {
-            clearInterval(interval);
-            setScanLoading(false);
-            setRescanLoading((prev) => ({ ...prev, [domain.id]: false }));
-            nav("failed");
-          }
+      trackScanProgress(
+        created.id,
+        (latest) => {
+          setRescanLoading((prev) => ({ ...prev, [domain.id]: false }));
+          const prevScore = domain.latestScore ?? 100;
+          const newScore = latest.exposureScore;
+          const delta = newScore - prevScore;
+          setRescanDeltas((prev) => ({ ...prev, [domain.id]: delta }));
+        },
+        () => {
+          setRescanLoading((prev) => ({ ...prev, [domain.id]: false }));
         }
-      }, 1000);
+      );
     } catch (err: any) {
       setScanLoading(false);
       setRescanLoading((prev) => ({ ...prev, [domain.id]: false }));
@@ -655,11 +655,6 @@ export function LoggedInApp({
         setActionMessage(err?.message || "Failed to start rescan.");
       }
     }
-  };
-
-  const nav = (next: Screen) => {
-    setScreen(next);
-    setSelected(null);
   };
 
   const continueToVerification = () => {
@@ -753,36 +748,63 @@ export function LoggedInApp({
 
   return (
     <div className="app-shell">
-      <aside className="app-sidebar">
-        <button className="app-logo" onClick={() => nav("history")}>
-          {BRAND}
-          <sup>®</sup>
-        </button>
-        <button className="sidebar-new" onClick={() => nav("new")}>
+      {/* Mobile backdrop scrim */}
+      {mobileMenuOpen && (
+        <div
+          className="sidebar-backdrop"
+          onClick={() => setMobileMenuOpen(false)}
+          aria-hidden="true"
+        />
+      )}
+      <aside className={`app-sidebar ${mobileMenuOpen ? "mobile-open" : ""}`} aria-label="Main navigation">
+        <div className="sidebar-header-row">
+          <button className="app-logo" onClick={() => { nav("history"); setMobileMenuOpen(false); }}>
+            {BRAND}
+            <sup>®</sup>
+          </button>
+          <button
+            className="mobile-close-btn"
+            onClick={() => setMobileMenuOpen(false)}
+            aria-label="Close navigation"
+          >
+            <MaterialIcon>close</MaterialIcon>
+          </button>
+        </div>
+        <button className="sidebar-new" onClick={() => { nav("new"); setMobileMenuOpen(false); }}>
           <MaterialIcon>add</MaterialIcon> New scan
         </button>
         <nav>
           <button
             className={["history", "results", "compare", "failed"].includes(screen) ? "active" : ""}
-            onClick={() => nav("history")}
+            onClick={() => { nav("history"); setMobileMenuOpen(false); }}
           >
             <MaterialIcon>radar</MaterialIcon>Scans
           </button>
-          <button onClick={() => nav("apps")} className={screen === "apps" ? "active" : ""}>
+          <button onClick={() => { nav("apps"); setMobileMenuOpen(false); }} className={screen === "apps" ? "active" : ""}>
             <MaterialIcon>apps</MaterialIcon>Apps
           </button>
-          <button onClick={() => nav("settings")} className={screen === "settings" ? "active" : ""}>
+          <button onClick={() => { nav("settings"); setMobileMenuOpen(false); }} className={screen === "settings" ? "active" : ""}>
             <MaterialIcon>settings</MaterialIcon>Settings
           </button>
         </nav>
       </aside>
       <div className="app-main">
         <header className="app-topbar">
-          <button className="app-switcher" onClick={() => nav("apps")}>
-            <span>{appInitials}</span>
-            <b>{appDisplay}</b>
-            <MaterialIcon>expand_more</MaterialIcon>
-          </button>
+          <div className="topbar-left">
+            <button
+              className="mobile-hamburger-btn"
+              onClick={() => setMobileMenuOpen(true)}
+              aria-label="Open menu"
+              aria-expanded={mobileMenuOpen}
+            >
+              <MaterialIcon>menu</MaterialIcon>
+            </button>
+            <button className="app-switcher" onClick={() => nav("apps")}>
+              <span>{appInitials}</span>
+              <b>{appDisplay}</b>
+              <MaterialIcon>expand_more</MaterialIcon>
+            </button>
+          </div>
           <div className="account-wrap">
             <button className="account-button" onClick={() => setAccountOpen(!accountOpen)}>
               <span>{userInitials}</span>{userName} <MaterialIcon>expand_more</MaterialIcon>

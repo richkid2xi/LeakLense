@@ -43,6 +43,14 @@ export interface UiScanDetail {
   detectedStack: string[];
   findings: UiFinding[];
   checksRun: UiCheckRun[];
+  status?: string;
+  metrics?: {
+    stage?: string;
+    stepIndex?: number;
+    assetsFetched?: number;
+    bytesRead?: number;
+    requestsMade?: number;
+  };
 }
 
 export interface UiDomain {
