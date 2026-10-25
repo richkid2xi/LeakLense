@@ -26,8 +26,9 @@ async function bootstrap() {
   if (process.env.DATABASE_URL) {
     try {
       const isSsl = process.env.DATABASE_URL.includes("sslmode=require") || process.env.DATABASE_URL.includes("supabase.com");
+      const sanitizedConn = isSsl ? process.env.DATABASE_URL.replace(/[?&]sslmode=[^&]+/, '') : process.env.DATABASE_URL;
       const boss = new PgBoss({
-        connectionString: process.env.DATABASE_URL,
+        connectionString: sanitizedConn,
         ssl: isSsl ? { rejectUnauthorized: false } : undefined,
       });
       boss.on("error", (error) => console.error("pg-boss queue error:", error));

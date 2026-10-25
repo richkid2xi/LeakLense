@@ -16,8 +16,9 @@ export async function createWorkerQueue(connectionString?: string): Promise<PgBo
   const conn =
     connectionString || process.env.DATABASE_URL || 'postgres://localhost:5432/leaklens'
   const isSsl = conn.includes('sslmode=require') || conn.includes('supabase.com')
+  const sanitizedConn = isSsl ? conn.replace(/[?&]sslmode=[^&]+/, '') : conn
   const boss = new PgBoss({
-    connectionString: conn,
+    connectionString: sanitizedConn,
     ssl: isSsl ? { rejectUnauthorized: false } : undefined,
   })
 
